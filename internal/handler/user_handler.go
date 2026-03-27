@@ -81,7 +81,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 	}
 
 	// 3. Jika password cocok, Generate KEDUA Token
-	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, user.Email)
+	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, user.Email, user.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token autentikasi"})
 		return
@@ -122,7 +122,7 @@ func (h *UserHandler) RefreshToken(c *gin.Context) {
 	}
 
 	// Buat pasangan token baru
-	newAccessToken, newRefreshToken, err := utils.GenerateTokens(claims.UserID, claims.Email)
+	newAccessToken, newRefreshToken, err := utils.GenerateTokens(claims.UserID, claims.Email, claims.Role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token baru"})
 		return
@@ -142,12 +142,14 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	// Mengambil data yang diselipkan oleh Middleware ke dalam Context
 	userID, _ := c.Get("userID")
 	email, _ := c.Get("email")
+	role, _ := c.Get("role")
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Selamat datang di area terlarang!",
 		"data": gin.H{
 			"user_id": userID,
 			"email":   email,
+			"role":    role,
 		},
 	})
 }

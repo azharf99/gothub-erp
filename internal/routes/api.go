@@ -6,21 +6,43 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Fungsi untuk mendaftarkan semua rute
 func SetupRoutes(router *gin.Engine, userHandler *handler.UserHandler) {
 	api := router.Group("/api/v1")
 	{
+		// 🔓 RUTE PUBLIK
 		api.POST("/register", userHandler.Register)
 		api.POST("/login", userHandler.Login)
-		// Nanti bisa tambah rute lain di sini: api.GET("/users", userHandler.GetAll)
-		api.POST("/refresh-token", userHandler.RefreshToken)
 
-		// Rute Terlindungi (Harus bawa Access Token di header Authorization)
+		// 🔒 RUTE TERLINDUNGI (Wajib Login)
 		protected := api.Group("/")
-		protected.Use(middleware.RequireAuth()) // Pasang gembok di grup ini!
+		protected.Use(middleware.RequireAuth())
 		{
+			// Semua yang sudah login bisa lihat profil sendiri
 			protected.GET("/profile", userHandler.GetProfile)
-			// Nanti bisa tambah: protected.POST("/products", productHandler.Create) dll.
+
+			// 👨‍🏫 GRUP GURU (Hanya Guru dan Admin yang bisa masuk)
+			guruRoutes := protected.Group("/grades")
+			guruRoutes.Use(middleware.RequireRole("Guru", "Admin"))
+			{
+				// Contoh: POST /api/v1/grades (Input nilai siswa)
+				// guruRoutes.POST("/", gradeHandler.InputGrade)
+			}
+
+			// 👨‍🎓 GRUP SISWA (Siswa, Guru, Admin bisa akses)
+			siswaRoutes := protected.Group("/schedules")
+			siswaRoutes.Use(middleware.RequireRole("Siswa", "Guru", "Admin"))
+			{
+				// Contoh: GET /api/v1/schedules (Lihat jadwal pelajaran)
+				// siswaRoutes.GET("/", scheduleHandler.GetSchedules)
+			}
+
+			// 👑 GRUP SUPER ADMIN (Hanya Admin yang bisa masuk)
+			adminRoutes := protected.Group("/teachers-data")
+			adminRoutes.Use(middleware.RequireRole("Admin"))
+			{
+				// Contoh: GET /api/v1/teachers-data (Lihat data kepegawaian guru)
+				// adminRoutes.GET("/", adminHandler.GetAllTeachers)
+			}
 		}
 	}
 }

@@ -5,25 +5,27 @@ import (
 	"time"
 )
 
-// Tambahkan tag `gorm` untuk PostgreSQL
+// Menambahkan field Role
 type User struct {
 	ID        uint   `gorm:"primaryKey"`
 	Nama      string `gorm:"type:varchar(100);not null"`
 	Email     string `gorm:"type:varchar(100);uniqueIndex;not null"`
-	Password  string `gorm:"not null"` // Tambahan untuk JWT nanti
+	Password  string `gorm:"not null"`
+	Role      string `gorm:"type:varchar(20);not null;default:'Siswa'"` // Admin, Guru, Siswa, Karyawan
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type RegisterRequest struct {
+	Nama     string `json:"nama" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=6"`
+	Role     string `json:"role" binding:"required,oneof=Admin Guru Siswa Karyawan"` // Validasi ketat Gin
 }
 
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
-}
-
-// Struct untuk Payload Request
-type RegisterRequest struct {
-	Nama  string `json:"nama" binding:"required"`
-	Email string `json:"email" binding:"required,email"`
 }
 
 // Method untuk Validasi
