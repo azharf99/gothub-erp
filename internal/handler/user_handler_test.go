@@ -42,25 +42,24 @@ func (m *MockUserRepository) CariBerdasarkanEmail(email string) (*models.User, e
 }
 
 func (m *MockUserRepository) AmbilSemuaUser() ([]models.User, error) {
-	return []models.User{}, nil
-}
-
-func (m *MockUserRepository) AmbilUserByID(id uint) (*models.User, error) {
-	return &models.User{
-		ID: id,
+	return []models.User{
+		{ID: 1, Nama: "Azhar", Role: "Admin"},
+		{ID: 2, Nama: "Budi", Role: "Guru"},
 	}, nil
 }
 
+func (m *MockUserRepository) AmbilUserByID(id uint) (*models.User, error) {
+	if id == 1 {
+		return &models.User{ID: 1, Nama: "Azhar", Role: "Admin"}, nil
+	}
+	return nil, errors.New("user tidak ditemukan")
+}
+
 func (m *MockUserRepository) UpdateUser(user *models.User) error {
-	user.Nama = "Azhar Faturohman Ahidin"
 	return nil
 }
 
 func (m *MockUserRepository) HapusUser(id uint) error {
-	user := &models.User{
-		ID: id,
-	}
-	user.ID = 0 // Simulasi penghapusan dengan mengosongkan ID
 	return nil
 }
 
@@ -138,6 +137,30 @@ func TestLogin_WrongPassword(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "Email atau password salah")
 }
 
+// ==========================================
+// 5. TEST GET ALL USERS (SKENARIO ADMIN)
+// ==========================================
+func TestGetAllUsers_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := &UserHandler{Repo: &MockUserRepository{}}
+	router := gin.Default()
+
+	// Kita tidak perlu menguji Middleware JWT di sini karena itu tugas tes integrasi,
+	// kita langsung arahkan rute ke fungsi Handler.
+	router.GET("/users", handler.GetAllUsers)
+
+	req, _ := http.NewRequest("GET", "/users", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Azhar")
+	assert.Contains(t, w.Body.String(), "Budi")
+}
+
+// ==========================================
+// 6. TEST UPDATE USER (SKENARIO ADMIN)
+// ==========================================
 func TestUpdateUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockRepo := &MockUserRepository{}
@@ -158,6 +181,9 @@ func TestUpdateUser(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "Azhar Faturohman Ahidin")
 }
 
+// ==========================================
+// 7. TEST DELETE USER (SKENARIO ADMIN)
+// ==========================================
 func TestDeleteUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockRepo := &MockUserRepository{}
