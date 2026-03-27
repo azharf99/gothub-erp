@@ -1,35 +1,33 @@
 name: Gothub ERP - Unit Test Pipeline
 
-# 1. Kapan robot ini harus bekerja?
 on:
   push:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
 
-# 2. Apa tugas utamanya?
+# >>> TAMBAHKAN BLOK INI <<<
+# Memaksa GitHub Actions menggunakan Node.js 24 agar warning hilang
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
     name: Run Unit Tests
-    runs-on: ubuntu-latest # Menggunakan server Linux gratis dari GitHub
+    runs-on: ubuntu-latest
 
     steps:
-    # Langkah A: Mengambil kode dari repositorimu
     - name: 📥 Checkout Repository
       uses: actions/checkout@v4
 
-    # Langkah B: Memasang bahasa Go versi 1.26
     - name: ⚙️ Setup Golang
       uses: actions/setup-go@v5
       with:
         go-version: '1.26'
-        cache: true # Mempercepat proses build selanjutnya
+        cache: true 
 
-    # Langkah C: Mengunduh semua library (seperti Gin dan GORM)
     - name: 📦 Download Dependencies
       run: go mod download
 
-    # Langkah D: Menjalankan semua Unit Test yang ada di proyek
     - name: 🧪 Run Unit Tests
-      # Perintah ./... artinya mencari semua file test di dalam folder dan subfolder
       run: go test -v ./...
