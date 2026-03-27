@@ -27,8 +27,9 @@ func SetupRoutes(router *gin.Engine, userHandler *handler.UserHandler, courseHan
 			teacherRoutes := protected.Group("/courses")
 			teacherRoutes.Use(middleware.RequireRole("Guru", "Admin"))
 			{
-				teacherRoutes.POST("/", courseHandler.CreateCourse) // <<< CREATE
-				// Nanti bisa tambah: teacherRoutes.PUT("/:id", ...) dan DELETE
+				teacherRoutes.POST("/", courseHandler.CreateCourse)      // <<< CREATE
+				teacherRoutes.PUT("/:id", courseHandler.UpdateCourse)    // <<< TAMBAHAN UPDATE
+				teacherRoutes.DELETE("/:id", courseHandler.DeleteCourse) // <<< TAMBAHAN DELETE
 			}
 
 			// 👑 GRUP MANAJEMEN USER (Hanya Super Admin)

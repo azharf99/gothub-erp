@@ -26,5 +26,7 @@ type CourseRequest struct {
 type CourseRepository interface {
 	BuatCourse(course *Course) error
 	AmbilSemuaCourse() ([]Course, error)
-	// (Untuk CRUD lengkap, kamu bisa tambahkan Update dan Delete nanti)
+	AmbilCourseByID(id uint) (*Course, error)
+	UpdateCourse(course *Course) error
+	HapusCourse(id uint) error
 }
