@@ -43,10 +43,7 @@ func (h *CourseHandler) CreateCourse(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Mata pelajaran berhasil ditambahkan",
-		"data":    newCourse,
-	})
+	utils.SendSuccess(c, http.StatusCreated, "Mata pelajaran berhasil ditambahkan", newCourse)
 }
 
 // GET ALL COURSES
@@ -57,10 +54,7 @@ func (h *CourseHandler) GetAllCourses(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Berhasil",
-		"data":    courses,
-	})
+	utils.SendSuccess(c, http.StatusOK, "Berhasil mengambil daftar mata pelajaran", courses)
 }
 
 // UPDATE COURSE
@@ -106,10 +100,7 @@ func (h *CourseHandler) UpdateCourse(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Mata pelajaran berhasil diperbarui",
-		"data":    course,
-	})
+	utils.SendSuccess(c, http.StatusOK, "Mata pelajaran berhasil diperbarui", course)
 }
 
 // DELETE COURSE
@@ -143,5 +134,5 @@ func (h *CourseHandler) DeleteCourse(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Mata pelajaran berhasil dihapus"})
+	utils.SendSuccess(c, http.StatusOK, "Mata pelajaran berhasil dihapus", nil)
 }

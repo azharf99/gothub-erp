@@ -52,8 +52,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 		c.Error(utils.NewInternalError("Gagal menyimpan user ke database"))
 		return
 	}
-
-	c.JSON(http.StatusCreated, gin.H{"message": "Registrasi berhasil, silakan login"})
+	utils.SendSuccess(c, http.StatusCreated, "Registrasi berhasil, silakan login", newUser)
 }
 
 // ==========================================
@@ -145,14 +144,12 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	email, _ := c.Get("email")
 	role, _ := c.Get("role")
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Selamat datang di area terlarang!",
-		"data": gin.H{
-			"user_id": userID,
-			"email":   email,
-			"role":    role,
-		},
+	utils.SendSuccess(c, http.StatusOK, "Selamat datang di area terlarang!", gin.H{
+		"user_id": userID,
+		"email":   email,
+		"role":    role,
 	})
+
 }
 
 // ==========================================
@@ -163,10 +160,7 @@ func (h *UserHandler) Logout(c *gin.Context) {
 	// dan menginstruksikan Frontend untuk menghapus token di sisi mereka.
 	// Jika ingin level enterprise (Strict), token yang dikirim di header bisa dicegat
 	// lalu dimasukkan ke tabel "TokenBlacklist" di database menggunakan Repo.
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Logout berhasil. Silakan hapus token di sisi klien.",
-	})
+	utils.SendSuccess(c, http.StatusOK, "Logout berhasil. Token akan dihapus di sisi klien.", nil)
 }
 
 // ==========================================
@@ -179,7 +173,7 @@ func (h *UserHandler) GetAllUsers(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": users})
+	utils.SendSuccess(c, http.StatusOK, "Berhasil mengambil daftar pengguna", users)
 }
 
 // ==========================================
@@ -219,10 +213,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Data pengguna berhasil diperbarui",
-		"data":    user,
-	})
+	utils.SendSuccess(c, http.StatusOK, "Berhasil memperbarui data pengguna", user)
 }
 
 // ==========================================
@@ -240,6 +231,5 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		c.Error(utils.NewInternalError("Gagal menghapus pengguna"))
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Pengguna berhasil dihapus"})
+	utils.SendSuccess(c, http.StatusOK, "Pengguna berhasil dihapus", nil)
 }
