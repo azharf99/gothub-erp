@@ -9,7 +9,9 @@ bin/
 
 # Environment Variables (SANGAT PENTING: Jangan sampai token/password bocor!)
 .env
-.env.*
+.env.development
+.env.staging
+.env.production
 
 # IDE / Editor Files (Konfigurasi VSCode, GoLand, dsb)
 .vscode/

@@ -51,7 +51,7 @@ func main() {
 	// ==========================================
 	// GORM akan membaca struct User dan otomatis membuatkan tabel 'users'
 	// lengkap dengan kolom, tipe data, dan primary key-nya jika belum ada.
-	err = db.AutoMigrate(&models.User{})
+	err = db.AutoMigrate(&models.User{}, &models.Course{})
 	if err != nil {
 		log.Fatal("Gagal melakukan migrasi database:", err)
 	}
@@ -59,6 +59,7 @@ func main() {
 
 	// 3. 2 JALANKAN SEEDER DI SINI
 	database.SeedSuperAdmin(db)
+	fmt.Println("Seeding data berhasil!")
 
 	// ==========================================
 	// 4. DEPENDENCY INJECTION
@@ -69,13 +70,15 @@ func main() {
 	// Suntikkan Repo ke dalam Handler
 	userHandler := &handler.UserHandler{Repo: dbRepo}
 
+	courseRepo := repository.NewCourseRepo(db)
+	courseHandler := &handler.CourseHandler{Repo: courseRepo}
 	// ==========================================
 	// 5. SETUP ROUTER & START SERVER
 	// ==========================================
 	router := gin.Default()
 
 	// Daftarkan semua rute API
-	routes.SetupRoutes(router, userHandler)
+	routes.SetupRoutes(router, userHandler, courseHandler)
 
 	// Ambil port dari .env, default ke 8080 jika kosong
 	port := os.Getenv("PORT")

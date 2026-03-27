@@ -7,11 +7,12 @@ import (
 
 // Menambahkan field Role
 type User struct {
-	ID        uint   `gorm:"primaryKey"`
-	Nama      string `gorm:"type:varchar(100);not null"`
-	Email     string `gorm:"type:varchar(100);uniqueIndex;not null"`
-	Password  string `gorm:"not null"`
-	Role      string `gorm:"type:varchar(20);not null;default:'Siswa'"` // Admin, Guru, Siswa, Karyawan
+	ID        uint     `gorm:"primaryKey"`
+	Nama      string   `gorm:"type:varchar(100);not null"`
+	Email     string   `gorm:"type:varchar(100);uniqueIndex;not null"`
+	Password  string   `gorm:"not null"`
+	Role      string   `gorm:"type:varchar(20);not null;default:'Siswa'"` // Admin, Guru, Siswa, Karyawan
+	Courses   []Course `gorm:"foreignKey:TeacherID" json:"-"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRoutes(router *gin.Engine, userHandler *handler.UserHandler) {
+func SetupRoutes(router *gin.Engine, userHandler *handler.UserHandler, courseHandler *handler.CourseHandler) {
 	api := router.Group("/api/v1")
 	{
 		// 🔓 RUTE PUBLIK
@@ -19,6 +19,15 @@ func SetupRoutes(router *gin.Engine, userHandler *handler.UserHandler) {
 		{
 			// Semua yang sudah login bisa lihat profil sendiri
 			protected.GET("/profile", userHandler.GetProfile)
+			protected.GET("/courses", courseHandler.GetAllCourses) // <<< READ
+
+			// 👨‍🏫 GRUP KHUSUS PENGAJAR & ADMIN
+			teacherRoutes := protected.Group("/courses")
+			teacherRoutes.Use(middleware.RequireRole("Guru", "Admin"))
+			{
+				teacherRoutes.POST("/", courseHandler.CreateCourse) // <<< CREATE
+				// Nanti bisa tambah: teacherRoutes.PUT("/:id", ...) dan DELETE
+			}
 
 			// 👨‍🏫 GRUP GURU (Hanya Guru dan Admin yang bisa masuk)
 			guruRoutes := protected.Group("/grades")
