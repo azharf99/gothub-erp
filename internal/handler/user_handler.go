@@ -21,21 +21,21 @@ type UserHandler struct {
 func (h *UserHandler) Register(c *gin.Context) {
 	var req models.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.Error(utils.NewBadRequest(err.Error()))
 		return
 	}
 
 	// Hashing Password menggunakan bcrypt
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses password"})
+		c.Error(utils.NewInternalError("Gagal memproses password"))
 		return
 	}
 
 	// Validasi Bisnis Custom (Contoh: Nama tidak boleh "admin")
 	validationErr := req.ValidateCustomBusinessLogic()
 	if validationErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
+		c.Error(utils.NewBadRequest(validationErr.Error()))
 		return
 	}
 
@@ -49,7 +49,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 
 	// 3. Simpan ke database
 	if err := h.Repo.SimpanUser(&newUser); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan user ke database"})
+		c.Error(utils.NewInternalError("Gagal menyimpan user ke database"))
 		return
 	}
 
@@ -63,29 +63,28 @@ func (h *UserHandler) Login(c *gin.Context) {
 	var req models.LoginRequest // Pastikan LoginRequest ada di models (Email & Password)
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Format request tidak valid"})
+		c.Error(utils.NewBadRequest("Format JSON tidak sesuai atau data tidak lengkap"))
 		return
 	}
 
 	// 1. Cari user di database berdasarkan Email
 	user, err := h.Repo.CariBerdasarkanEmail(req.Email)
 	if err != nil || user == nil {
-		// Gunakan pesan error yang umum demi keamanan (jangan beritahu apakah email atau password yang salah)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau password salah"})
+		c.Error(utils.NewUnauthorized("Email atau password salah"))
 		return
 	}
 
 	// 2. Bandingkan password asli dari request dengan password hash dari database
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email atau password salah"})
+		c.Error(utils.NewUnauthorized("Email atau password salah"))
 		return
 	}
 
 	// 3. Jika password cocok, Generate KEDUA Token
 	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, user.Email, user.Role)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token autentikasi"})
+		c.Error(utils.NewInternalError("Gagal membuat token autentikasi"))
 		return
 	}
 
@@ -106,27 +105,27 @@ type RefreshRequest struct {
 func (h *UserHandler) RefreshToken(c *gin.Context) {
 	var req RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Refresh token dibutuhkan"})
+		c.Error(utils.NewBadRequest("Refresh token dibutuhkan"))
 		return
 	}
 
 	// Validasi refresh token
 	claims, err := utils.ValidateToken(req.RefreshToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Refresh token tidak valid atau kedaluwarsa. Silakan login ulang."})
+		c.Error(utils.NewUnauthorized("Refresh token tidak valid atau kedaluwarsa. Silakan login ulang."))
 		return
 	}
 
 	// Pastikan tipe tokennya benar-benar "refresh"
 	if claims.Type != "refresh" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token yang diberikan bukan refresh token"})
+		c.Error(utils.NewUnauthorized("Token yang diberikan bukan refresh token"))
 		return
 	}
 
 	// Buat pasangan token baru
 	newAccessToken, newRefreshToken, err := utils.GenerateTokens(claims.UserID, claims.Email, claims.Role)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal membuat token baru"})
+		c.Error(utils.NewInternalError("Gagal membuat token baru"))
 		return
 	}
 
@@ -176,7 +175,7 @@ func (h *UserHandler) Logout(c *gin.Context) {
 func (h *UserHandler) GetAllUsers(c *gin.Context) {
 	users, err := h.Repo.AmbilSemuaUser()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pengguna"})
+		c.Error(utils.NewInternalError("Gagal mengambil data pengguna"))
 		return
 	}
 
@@ -191,20 +190,20 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	idParam := c.Param("id")
 	targetID, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID pengguna tidak valid"})
+		c.Error(utils.NewBadRequest("ID pengguna tidak valid"))
 		return
 	}
 
 	var req models.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.Error(utils.NewBadRequest(err.Error()))
 		return
 	}
 
 	// Cari user yang mau diupdate
 	user, err := h.Repo.AmbilUserByID(uint(targetID))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Pengguna tidak ditemukan"})
+		c.Error(utils.NewNotFound("Pengguna tidak ditemukan"))
 		return
 	}
 
@@ -216,7 +215,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	}
 
 	if err := h.Repo.UpdateUser(user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data pengguna"})
+		c.Error(utils.NewInternalError("Gagal memperbarui data pengguna"))
 		return
 	}
 
@@ -233,12 +232,12 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	idParam := c.Param("id")
 	targetID, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID pengguna tidak valid"})
+		c.Error(utils.NewBadRequest("ID pengguna tidak valid"))
 		return
 	}
 
 	if err := h.Repo.HapusUser(uint(targetID)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus pengguna"})
+		c.Error(utils.NewInternalError("Gagal menghapus pengguna"))
 		return
 	}
 

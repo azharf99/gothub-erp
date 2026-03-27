@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/azharf99/gothub-erp/internal/models"
+	"github.com/azharf99/gothub-erp/internal/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,14 +17,14 @@ type CourseHandler struct {
 func (h *CourseHandler) CreateCourse(c *gin.Context) {
 	var req models.CourseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap"})
+		c.Error(utils.NewBadRequest("Format JSON tidak sesuai atau data tidak lengkap"))
 		return
 	}
 
 	// MENGAMBIL ID DARI TOKEN JWT (Diset oleh middleware RequireAuth)
 	userIDStr, exists := c.Get("userID")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sesi tidak valid"})
+		c.Error(utils.NewUnauthorized("Sesi Anda tidak valid, silakan login ulang"))
 		return
 	}
 
@@ -38,7 +39,7 @@ func (h *CourseHandler) CreateCourse(c *gin.Context) {
 	}
 
 	if err := h.Repo.BuatCourse(&newCourse); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menyimpan mata pelajaran"})
+		c.Error(utils.NewInternalError("Gagal menyimpan mata pelajaran ke database"))
 		return
 	}
 
@@ -52,7 +53,7 @@ func (h *CourseHandler) CreateCourse(c *gin.Context) {
 func (h *CourseHandler) GetAllCourses(c *gin.Context) {
 	courses, err := h.Repo.AmbilSemuaCourse()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data mata pelajaran"})
+		c.Error(utils.NewInternalError("Gagal mengambil data mata pelajaran"))
 		return
 	}
 
@@ -67,20 +68,20 @@ func (h *CourseHandler) UpdateCourse(c *gin.Context) {
 	idParam := c.Param("id")
 	courseID, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID mata pelajaran tidak valid"})
+		c.Error(utils.NewBadRequest("ID mata pelajaran tidak valid"))
 		return
 	}
 
 	var req models.CourseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak lengkap"})
+		c.Error(utils.NewBadRequest("Format JSON tidak sesuai atau data tidak lengkap"))
 		return
 	}
 
 	// Cari mapel di database
 	course, err := h.Repo.AmbilCourseByID(uint(courseID))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Mata pelajaran tidak ditemukan"})
+		c.Error(utils.NewNotFound("Mata pelajaran tidak ditemukan"))
 		return
 	}
 
@@ -92,7 +93,7 @@ func (h *CourseHandler) UpdateCourse(c *gin.Context) {
 
 	// Jika dia BUKAN Admin, dan dia BUKAN guru pembuat mapel ini -> Tolak!
 	if userRole != "Admin" && course.TeacherID != userID.(uint) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Akses ditolak: Anda bukan pengajar mata pelajaran ini"})
+		c.Error(utils.NewForbidden("Akses ditolak: Anda bukan pengajar mata pelajaran ini"))
 		return
 	}
 
@@ -101,7 +102,7 @@ func (h *CourseHandler) UpdateCourse(c *gin.Context) {
 	course.Deskripsi = req.Deskripsi
 
 	if err := h.Repo.UpdateCourse(course); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui mata pelajaran"})
+		c.Error(utils.NewInternalError("Gagal memperbarui mata pelajaran"))
 		return
 	}
 
@@ -116,13 +117,13 @@ func (h *CourseHandler) DeleteCourse(c *gin.Context) {
 	idParam := c.Param("id")
 	courseID, err := strconv.ParseUint(idParam, 10, 32)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID mata pelajaran tidak valid"})
+		c.Error(utils.NewBadRequest("ID mata pelajaran tidak valid"))
 		return
 	}
 
 	course, err := h.Repo.AmbilCourseByID(uint(courseID))
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Mata pelajaran tidak ditemukan"})
+		c.Error(utils.NewNotFound("Mata pelajaran tidak ditemukan"))
 		return
 	}
 
@@ -133,12 +134,12 @@ func (h *CourseHandler) DeleteCourse(c *gin.Context) {
 	userRole, _ := c.Get("role")
 
 	if userRole != "Admin" && course.TeacherID != userID.(uint) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Akses ditolak: Anda hanya dapat menghapus mata pelajaran yang Anda buat"})
+		c.Error(utils.NewForbidden("Akses ditolak: Anda hanya dapat menghapus mata pelajaran yang Anda buat"))
 		return
 	}
 
 	if err := h.Repo.HapusCourse(uint(courseID)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus mata pelajaran"})
+		c.Error(utils.NewInternalError("Gagal menghapus mata pelajaran"))
 		return
 	}
 
