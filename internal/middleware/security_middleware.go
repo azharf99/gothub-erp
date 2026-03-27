@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -20,6 +21,12 @@ func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", os.Getenv("ALLOWED_ORIGIN"))
 		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		// Jika browser mengirim preflight request (OPTIONS), kita langsung kembalikan status OK (200)
+		if c.Request.Method == "OPTIONS" {
+			c.Writer.WriteHeader(http.StatusOK)
+			return
+		}
 		c.Next()
 	}
 }
