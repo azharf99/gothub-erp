@@ -10,6 +10,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	"github.com/azharf99/gothub-erp/internal/database"
 	"github.com/azharf99/gothub-erp/internal/handler"
 	"github.com/azharf99/gothub-erp/internal/models"
 	"github.com/azharf99/gothub-erp/internal/repository"
@@ -55,6 +56,9 @@ func main() {
 		log.Fatal("Gagal melakukan migrasi database:", err)
 	}
 	fmt.Println("Migrasi database berhasil!")
+
+	// 3. 2 JALANKAN SEEDER DI SINI
+	database.SeedSuperAdmin(db)
 
 	// ==========================================
 	// 4. DEPENDENCY INJECTION
