@@ -43,7 +43,7 @@ func (r *PostgresRepo) AmbilSemuaUser(page int, limit int) ([]models.User, int64
 	// Rumus: (Halaman Saat Ini - 1) * Limit
 	offset := (page - 1) * limit
 
-	err := r.DB.Select("id", "nama", "email", "role", "created_at", "updated_at").Offset(offset).Limit(limit).Find(&users).Error
+	err := r.DB.Select("id", "nama", "email", "role", "created_at", "updated_at").Offset(offset).Limit(limit).Find(&users).Order("nama ASC").Error
 	return users, totalItems, err
 }
 

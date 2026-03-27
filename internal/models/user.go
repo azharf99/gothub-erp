@@ -21,7 +21,7 @@ type RegisterRequest struct {
 	Nama     string `json:"nama" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
-	Role     string `json:"role" binding:"required,oneof=Admin Guru Siswa Karyawan"` // Validasi ketat Gin
+	Role     string `json:"role" binding:"omitempty,oneof=Admin Guru Siswa Karyawan"` // Validasi ketat Gin
 }
 
 type LoginRequest struct {
@@ -40,6 +40,9 @@ type UpdateUserRequest struct {
 func (req RegisterRequest) ValidateCustomBusinessLogic() error {
 	if req.Nama == "admin" {
 		return errors.New("nama 'admin' tidak boleh digunakan")
+	}
+	if req.Role == "" {
+		req.Role = "Siswa"
 	}
 	return nil
 }
