@@ -9,11 +9,14 @@ import (
 func SetupRoutes(router *gin.Engine, userHandler *handler.UserHandler, courseHandler *handler.CourseHandler) {
 	// Ini memastikan semua request melewati penangkap error kita
 	router.Use(middleware.GlobalErrorHandler())
+	router.Use(middleware.SecurityHeaders())
+	router.Use(middleware.CORSMiddleware())
 	api := router.Group("/api/v1")
 	{
 		// 🔓 RUTE PUBLIK
 		api.POST("/register", userHandler.Register)
 		api.POST("/login", userHandler.Login)
+		api.POST("/refresh-token", userHandler.RefreshToken)
 
 		// 🔒 RUTE TERLINDUNGI (Wajib Login)
 		protected := api.Group("/")
