@@ -1,0 +1,40 @@
+services:
+  # ----------------------------------------
+  # SERVICE 1: Database PostgreSQL
+  # ----------------------------------------
+  db:
+    image: postgres:15-alpine
+    container_name: erp_db_container
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER?Error! DB_USER belum diset di file .env!}
+      POSTGRES_PASSWORD: ${DB_PASSWORD?Error! DB_PASSWORD wajib diisi demi keamanan!}
+      POSTGRES_DB: ${DB_NAME?Error! Nama database belum diset!}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data # Agar data tidak hilang saat container mati
+
+  # ----------------------------------------
+  # SERVICE 2: Aplikasi Go (API)
+  # ----------------------------------------
+  api:
+    build: . # Membangun image dari Dockerfile di folder ini
+    container_name: erp_api_container
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      # PERHATIAN: DB_HOST sekarang menggunakan nama service 'db', bukan 'localhost'
+      - DB_HOST=db 
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-password_kamu}
+      - DB_NAME=${DB_NAME:-erp_db}
+      - DB_PORT=5432
+      - PORT=8080
+      - JWT_SECRET=${JWT_SECRET:-kunci_rahasia_kamu}
+    depends_on:
+      - db # Pastikan database menyala lebih dulu sebelum API menyala
+
+volumes:
+  pgdata: # Definisi volume untuk penyimpanan database permanen
