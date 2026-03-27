@@ -41,6 +41,29 @@ func (m *MockUserRepository) CariBerdasarkanEmail(email string) (*models.User, e
 	return nil, errors.New("user tidak ditemukan")
 }
 
+func (m *MockUserRepository) AmbilSemuaUser() ([]models.User, error) {
+	return []models.User{}, nil
+}
+
+func (m *MockUserRepository) AmbilUserByID(id uint) (*models.User, error) {
+	return &models.User{
+		ID: id,
+	}, nil
+}
+
+func (m *MockUserRepository) UpdateUser(user *models.User) error {
+	user.Nama = "Azhar Faturohman Ahidin"
+	return nil
+}
+
+func (m *MockUserRepository) HapusUser(id uint) error {
+	user := &models.User{
+		ID: id,
+	}
+	user.ID = 0 // Simulasi penghapusan dengan mengosongkan ID
+	return nil
+}
+
 // ==========================================
 // 2. TEST REGISTER (Sudah ada sebelumnya)
 // ==========================================
@@ -51,7 +74,7 @@ func TestRegister_Success(t *testing.T) {
 	router := gin.Default()
 	router.POST("/register", handler.Register)
 
-	jsonBody := []byte(`{"nama": "Azhar", "email": "azhar@example.com", "password": "password123"}`)
+	jsonBody := []byte(`{"nama": "Azhar", "email": "azhar@example.com", "password": "password123", "role": "Guru"}`)
 	req, _ := http.NewRequest("POST", "/register", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -113,4 +136,43 @@ func TestLogin_WrongPassword(t *testing.T) {
 	// Validasi bahwa statusnya 401 Unauthorized karena password salah
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 	assert.Contains(t, w.Body.String(), "Email atau password salah")
+}
+
+func TestUpdateUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockRepo := &MockUserRepository{}
+	handler := &UserHandler{Repo: mockRepo}
+	router := gin.Default()
+	router.PUT("/users/:id", handler.UpdateUser)
+
+	// Simulasi update user dengan ID 1
+	jsonBody := []byte(`{"nama": "Azhar Faturohman Ahidin", "email": "azhar.faturohman@example.com", "role": "Admin"}`)
+	req, _ := http.NewRequest("PUT", "/users/1", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Validasi bahwa user sudah berubah namanya sesuai dengan logika di MockUserRepository.UpdateUser
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Azhar Faturohman Ahidin")
+}
+
+func TestDeleteUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockRepo := &MockUserRepository{}
+	handler := &UserHandler{Repo: mockRepo}
+	router := gin.Default()
+	router.DELETE("/users/:id", handler.DeleteUser)
+
+	// Simulasi delete user dengan ID 1
+	req, _ := http.NewRequest("DELETE", "/users/1", nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Validasi bahwa user sudah dihapus sesuai dengan logika di MockUserRepository.DeleteUser
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Pengguna berhasil dihapus") // Karena ID dihapus, kita bisa cek bahwa ID sekarang 0 atau tidak ada
 }

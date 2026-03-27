@@ -30,3 +30,31 @@ func (r *PostgresRepo) CariBerdasarkanEmail(email string) (*models.User, error) 
 	}
 	return &user, nil
 }
+
+// READ: Ambil Semua User (Sembunyikan password menggunakan Select)
+func (r *PostgresRepo) AmbilSemuaUser() ([]models.User, error) {
+	var users []models.User
+	err := r.DB.Select("id", "nama", "email", "role", "created_at", "updated_at").Find(&users).Error
+	return users, err
+}
+
+// READ: Ambil Satu User
+func (r *PostgresRepo) AmbilUserByID(id uint) (*models.User, error) {
+	var user models.User
+	err := r.DB.Select("id", "nama", "email", "role", "created_at", "updated_at").First(&user, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// UPDATE: Perbarui data User
+func (r *PostgresRepo) UpdateUser(user *models.User) error {
+	// GORM otomatis mengupdate berdasarkan primary key (user.ID)
+	return r.DB.Save(user).Error
+}
+
+// DELETE: Hapus User
+func (r *PostgresRepo) HapusUser(id uint) error {
+	return r.DB.Delete(&models.User{}, id).Error
+}

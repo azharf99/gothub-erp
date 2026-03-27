@@ -19,6 +19,8 @@ func SetupRoutes(router *gin.Engine, userHandler *handler.UserHandler, courseHan
 		{
 			// Semua yang sudah login bisa lihat profil sendiri
 			protected.GET("/profile", userHandler.GetProfile)
+			// Endpoint Logout (Siapapun yang login bisa logout)
+			protected.POST("/logout", userHandler.Logout)
 			protected.GET("/courses", courseHandler.GetAllCourses) // <<< READ
 
 			// 👨‍🏫 GRUP KHUSUS PENGAJAR & ADMIN
@@ -27,6 +29,15 @@ func SetupRoutes(router *gin.Engine, userHandler *handler.UserHandler, courseHan
 			{
 				teacherRoutes.POST("/", courseHandler.CreateCourse) // <<< CREATE
 				// Nanti bisa tambah: teacherRoutes.PUT("/:id", ...) dan DELETE
+			}
+
+			// 👑 GRUP MANAJEMEN USER (Hanya Super Admin)
+			adminRoutes := protected.Group("/users")
+			adminRoutes.Use(middleware.RequireRole("Admin"))
+			{
+				adminRoutes.GET("/", userHandler.GetAllUsers)      // READ ALL
+				adminRoutes.PUT("/:id", userHandler.UpdateUser)    // UPDATE
+				adminRoutes.DELETE("/:id", userHandler.DeleteUser) // DELETE
 			}
 
 			// 👨‍🏫 GRUP GURU (Hanya Guru dan Admin yang bisa masuk)
@@ -43,14 +54,6 @@ func SetupRoutes(router *gin.Engine, userHandler *handler.UserHandler, courseHan
 			{
 				// Contoh: GET /api/v1/schedules (Lihat jadwal pelajaran)
 				// siswaRoutes.GET("/", scheduleHandler.GetSchedules)
-			}
-
-			// 👑 GRUP SUPER ADMIN (Hanya Admin yang bisa masuk)
-			adminRoutes := protected.Group("/teachers-data")
-			adminRoutes.Use(middleware.RequireRole("Admin"))
-			{
-				// Contoh: GET /api/v1/teachers-data (Lihat data kepegawaian guru)
-				// adminRoutes.GET("/", adminHandler.GetAllTeachers)
 			}
 		}
 	}

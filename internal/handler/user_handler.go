@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -15,26 +16,26 @@ type UserHandler struct {
 }
 
 // ==========================================
-// REGISTER LOGIC (Hash Password sebelum simpan)
+// REGISTER LOGIC (Hash Password dan Validasi Bisnis)
 // ==========================================
 func (h *UserHandler) Register(c *gin.Context) {
-	// Pastikan struct RegisterRequest di models memiliki field Password
-	var req struct {
-		Nama     string `json:"nama" binding:"required"`
-		Email    string `json:"email" binding:"required,email"`
-		Password string `json:"password" binding:"required,min=6"`
-	}
-
+	var req models.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 1. Hashing Password menggunakan bcrypt
-	// GenerateFromPassword menerima byte array password dan tingkat kerumitan (Cost)
+	// Hashing Password menggunakan bcrypt
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memproses password"})
+		return
+	}
+
+	// Validasi Bisnis Custom (Contoh: Nama tidak boleh "admin")
+	validationErr := req.ValidateCustomBusinessLogic()
+	if validationErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": validationErr.Error()})
 		return
 	}
 
@@ -43,6 +44,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 		Nama:     req.Nama,
 		Email:    req.Email,
 		Password: string(hashedPassword), // Simpan versi hash-nya, BUKAN versi aslinya
+		Role:     req.Role,
 	}
 
 	// 3. Simpan ke database
@@ -152,4 +154,93 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 			"role":    role,
 		},
 	})
+}
+
+// ==========================================
+// LOGOUT
+// ==========================================
+func (h *UserHandler) Logout(c *gin.Context) {
+	// Di sistem stateless murni, kita cukup mengirimkan respons sukses
+	// dan menginstruksikan Frontend untuk menghapus token di sisi mereka.
+	// Jika ingin level enterprise (Strict), token yang dikirim di header bisa dicegat
+	// lalu dimasukkan ke tabel "TokenBlacklist" di database menggunakan Repo.
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Logout berhasil. Silakan hapus token di sisi klien.",
+	})
+}
+
+// ==========================================
+// GET ALL USERS (Hanya Admin)
+// ==========================================
+func (h *UserHandler) GetAllUsers(c *gin.Context) {
+	users, err := h.Repo.AmbilSemuaUser()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data pengguna"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": users})
+}
+
+// ==========================================
+// UPDATE USER
+// ==========================================
+func (h *UserHandler) UpdateUser(c *gin.Context) {
+	// Mengambil ID dari URL parameter (misal: /users/2)
+	idParam := c.Param("id")
+	targetID, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID pengguna tidak valid"})
+		return
+	}
+
+	var req models.UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Cari user yang mau diupdate
+	user, err := h.Repo.AmbilUserByID(uint(targetID))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Pengguna tidak ditemukan"})
+		return
+	}
+
+	// Update data yang diizinkan
+	user.Nama = req.Nama
+	user.Email = req.Email
+	if req.Role != "" {
+		user.Role = req.Role // Hanya izinkan update role jika dikirim di JSON
+	}
+
+	if err := h.Repo.UpdateUser(user); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui data pengguna"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Data pengguna berhasil diperbarui",
+		"data":    user,
+	})
+}
+
+// ==========================================
+// DELETE USER
+// ==========================================
+func (h *UserHandler) DeleteUser(c *gin.Context) {
+	idParam := c.Param("id")
+	targetID, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ID pengguna tidak valid"})
+		return
+	}
+
+	if err := h.Repo.HapusUser(uint(targetID)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menghapus pengguna"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Pengguna berhasil dihapus"})
 }

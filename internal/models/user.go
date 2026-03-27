@@ -29,7 +29,14 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
-// Method untuk Validasi
+// Tambahkan Struct Payload untuk Update
+type UpdateUserRequest struct {
+	Nama  string `json:"nama" binding:"required"`
+	Email string `json:"email" binding:"required,email"`
+	Role  string `json:"role" binding:"omitempty,oneof=Admin Guru Siswa Karyawan"`
+}
+
+// Validasi Bisnis Custom (Contoh: Nama tidak boleh "admin")
 func (req RegisterRequest) ValidateCustomBusinessLogic() error {
 	if req.Nama == "admin" {
 		return errors.New("nama 'admin' tidak boleh digunakan")
@@ -40,5 +47,9 @@ func (req RegisterRequest) ValidateCustomBusinessLogic() error {
 // Interface: Kontrak yang harus dipatuhi oleh folder 'repository'
 type UserRepository interface {
 	SimpanUser(user *User) error
-	CariBerdasarkanEmail(email string) (*User, error) // Tambahan method untuk fitur Login
+	CariBerdasarkanEmail(email string) (*User, error)
+	AmbilSemuaUser() ([]User, error)
+	AmbilUserByID(id uint) (*User, error)
+	UpdateUser(user *User) error
+	HapusUser(id uint) error
 }
