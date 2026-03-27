@@ -32,10 +32,19 @@ func (r *PostgresRepo) CariBerdasarkanEmail(email string) (*models.User, error) 
 }
 
 // READ: Ambil Semua User (Sembunyikan password menggunakan Select)
-func (r *PostgresRepo) AmbilSemuaUser() ([]models.User, error) {
+func (r *PostgresRepo) AmbilSemuaUser(page int, limit int) ([]models.User, int64, error) {
 	var users []models.User
-	err := r.DB.Select("id", "nama", "email", "role", "created_at", "updated_at").Find(&users).Error
-	return users, err
+	var totalItems int64
+
+	// Hitung total keseluruhan data di tabel courses (tanpa limit/offset)
+	r.DB.Model(&models.User{}).Count(&totalItems)
+
+	// Hitung Offset (Berapa data yang harus dilewati)
+	// Rumus: (Halaman Saat Ini - 1) * Limit
+	offset := (page - 1) * limit
+
+	err := r.DB.Select("id", "nama", "email", "role", "created_at", "updated_at").Offset(offset).Limit(limit).Find(&users).Error
+	return users, totalItems, err
 }
 
 // READ: Ambil Satu User

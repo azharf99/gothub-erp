@@ -25,7 +25,7 @@ type CourseRequest struct {
 // Kontrak untuk Course Repository
 type CourseRepository interface {
 	BuatCourse(course *Course) error
-	AmbilSemuaCourse() ([]Course, error)
+	AmbilSemuaCourse(page int, limit int) ([]Course, int64, error)
 	AmbilCourseByID(id uint) (*Course, error)
 	UpdateCourse(course *Course) error
 	HapusCourse(id uint) error

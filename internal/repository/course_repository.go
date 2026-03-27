@@ -26,15 +26,23 @@ func (r *CourseRepo) BuatCourse(course *models.Course) error {
 }
 
 // READ: Mengambil semua course beserta data Gurunya
-func (r *CourseRepo) AmbilSemuaCourse() ([]models.Course, error) {
+func (r *CourseRepo) AmbilSemuaCourse(page int, limit int) ([]models.Course, int64, error) {
 	var courses []models.Course
-	// Preload("Teacher") menyuruh GORM menarik data User yang terkait
-	// Omit("Teacher.Password") memastikan password guru tidak ikut bocor ke response JSON
-	err := r.DB.Preload("Teacher", func(db *gorm.DB) *gorm.DB {
-		return db.Select("ID", "Nama", "Email", "Role") // Hanya ambil kolom yang aman
-	}).Find(&courses).Error
+	var totalItems int64
 
-	return courses, err
+	// Hitung total keseluruhan data di tabel courses (tanpa limit/offset)
+	r.DB.Model(&models.Course{}).Count(&totalItems)
+
+	// Hitung Offset (Berapa data yang harus dilewati)
+	// Rumus: (Halaman Saat Ini - 1) * Limit
+	offset := (page - 1) * limit
+
+	// Ambil datanya menggunakan Offset dan Limit
+	err := r.DB.Preload("Teacher", func(db *gorm.DB) *gorm.DB {
+		return db.Select("ID", "Nama", "Email", "Role")
+	}).Offset(offset).Limit(limit).Find(&courses).Error
+
+	return courses, totalItems, err
 }
 
 // Find Course by ID, termasuk data Guru-nya

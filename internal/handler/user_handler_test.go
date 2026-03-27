@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/bcrypt"
 
@@ -41,11 +40,11 @@ func (m *MockUserRepository) CariBerdasarkanEmail(email string) (*models.User, e
 	return nil, errors.New("user tidak ditemukan")
 }
 
-func (m *MockUserRepository) AmbilSemuaUser() ([]models.User, error) {
+func (m *MockUserRepository) AmbilSemuaUser(page, limit int) ([]models.User, int64, error) {
 	return []models.User{
 		{ID: 1, Nama: "Azhar", Role: "Admin"},
 		{ID: 2, Nama: "Budi", Role: "Guru"},
-	}, nil
+	}, int64(2), nil
 }
 
 func (m *MockUserRepository) AmbilUserByID(id uint) (*models.User, error) {
@@ -67,10 +66,8 @@ func (m *MockUserRepository) HapusUser(id uint) error {
 // 2. TEST REGISTER (Sudah ada sebelumnya)
 // ==========================================
 func TestRegister_Success(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	mockRepo := &MockUserRepository{}
-	handler := &UserHandler{Repo: mockRepo}
-	router := gin.Default()
+	router := setupTestRouter()
+	handler := &UserHandler{Repo: &MockUserRepository{}}
 	router.POST("/register", handler.Register)
 
 	jsonBody := []byte(`{"nama": "Azhar", "email": "azhar@example.com", "password": "password123", "role": "Guru"}`)
@@ -88,10 +85,8 @@ func TestRegister_Success(t *testing.T) {
 // 3. TEST LOGIN - SKENARIO SUKSES
 // ==========================================
 func TestLogin_Success(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	mockRepo := &MockUserRepository{}
-	handler := &UserHandler{Repo: mockRepo}
-	router := gin.Default()
+	router := setupTestRouter()
+	handler := &UserHandler{Repo: &MockUserRepository{}}
 	router.POST("/login", handler.Login)
 
 	// Mengirim email yang benar dan password asli ("password123")
@@ -118,10 +113,8 @@ func TestLogin_Success(t *testing.T) {
 // 4. TEST LOGIN - SKENARIO PASSWORD SALAH
 // ==========================================
 func TestLogin_WrongPassword(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	mockRepo := &MockUserRepository{}
-	handler := &UserHandler{Repo: mockRepo}
-	router := gin.Default()
+	router := setupTestRouter()
+	handler := &UserHandler{Repo: &MockUserRepository{}}
 	router.POST("/login", handler.Login)
 
 	// Sengaja mengirim password yang salah
@@ -141,9 +134,8 @@ func TestLogin_WrongPassword(t *testing.T) {
 // 5. TEST GET ALL USERS (SKENARIO ADMIN)
 // ==========================================
 func TestGetAllUsers_Success(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	router := setupTestRouter()
 	handler := &UserHandler{Repo: &MockUserRepository{}}
-	router := gin.Default()
 
 	// Kita tidak perlu menguji Middleware JWT di sini karena itu tugas tes integrasi,
 	// kita langsung arahkan rute ke fungsi Handler.
@@ -162,10 +154,8 @@ func TestGetAllUsers_Success(t *testing.T) {
 // 6. TEST UPDATE USER (SKENARIO ADMIN)
 // ==========================================
 func TestUpdateUser(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	mockRepo := &MockUserRepository{}
-	handler := &UserHandler{Repo: mockRepo}
-	router := gin.Default()
+	router := setupTestRouter()
+	handler := &UserHandler{Repo: &MockUserRepository{}}
 	router.PUT("/users/:id", handler.UpdateUser)
 
 	// Simulasi update user dengan ID 1
@@ -185,10 +175,8 @@ func TestUpdateUser(t *testing.T) {
 // 7. TEST DELETE USER (SKENARIO ADMIN)
 // ==========================================
 func TestDeleteUser(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	mockRepo := &MockUserRepository{}
-	handler := &UserHandler{Repo: mockRepo}
-	router := gin.Default()
+	router := setupTestRouter()
+	handler := &UserHandler{Repo: &MockUserRepository{}}
 	router.DELETE("/users/:id", handler.DeleteUser)
 
 	// Simulasi delete user dengan ID 1

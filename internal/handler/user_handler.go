@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"math"
 	"net/http"
 	"strconv"
 
@@ -167,13 +168,41 @@ func (h *UserHandler) Logout(c *gin.Context) {
 // GET ALL USERS (Hanya Admin)
 // ==========================================
 func (h *UserHandler) GetAllUsers(c *gin.Context) {
-	users, err := h.Repo.AmbilSemuaUser()
+	// 1. Tangkap parameter dari URL, beri nilai default jika tidak diisi
+	pageStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "10")
+
+	// 2. Konversi dari string ke integer
+	page, errPage := strconv.Atoi(pageStr)
+	limit, errLimit := strconv.Atoi(limitStr)
+
+	// Validasi dasar agar user tidak memasukkan angka minus
+	if errPage != nil || page < 1 {
+		page = 1
+	}
+	if errLimit != nil || limit < 1 {
+		limit = 10
+	}
+
+	// 3. Panggil Repository
+	users, totalItems, err := h.Repo.AmbilSemuaUser(page, limit)
 	if err != nil {
 		c.Error(utils.NewInternalError("Gagal mengambil data pengguna"))
 		return
 	}
 
-	utils.SendSuccess(c, http.StatusOK, "Berhasil mengambil daftar pengguna", users)
+	// 4. Hitung Total Halaman (Membulatkan ke atas, misal 11 data / 10 limit = 2 halaman)
+	totalPages := int(math.Ceil(float64(totalItems) / float64(limit)))
+
+	// 5. Susun Metadata
+	meta := utils.PaginationMeta{
+		CurrentPage: page,
+		Limit:       limit,
+		TotalItems:  totalItems,
+		TotalPages:  totalPages,
+	}
+
+	utils.SendPaginatedSuccess(c, http.StatusOK, "Berhasil mengambil daftar pengguna", users, meta)
 }
 
 // ==========================================

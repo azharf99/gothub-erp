@@ -48,7 +48,7 @@ func (req RegisterRequest) ValidateCustomBusinessLogic() error {
 type UserRepository interface {
 	SimpanUser(user *User) error
 	CariBerdasarkanEmail(email string) (*User, error)
-	AmbilSemuaUser() ([]User, error)
+	AmbilSemuaUser(page int, limit int) ([]User, int64, error)
 	AmbilUserByID(id uint) (*User, error)
 	UpdateUser(user *User) error
 	HapusUser(id uint) error

@@ -20,3 +20,29 @@ func SendSuccess(c *gin.Context, statusCode int, message string, data interface{
 		Data:    data,
 	})
 }
+
+// Struktur Metadata untuk Pagination
+type PaginationMeta struct {
+	CurrentPage int   `json:"current_page"`
+	Limit       int   `json:"limit"`
+	TotalItems  int64 `json:"total_items"`
+	TotalPages  int   `json:"total_pages"`
+}
+
+// Amplop khusus untuk respons yang memiliki Pagination
+type PaginatedSuccessResponse struct {
+	Success bool           `json:"success"`
+	Message string         `json:"message"`
+	Data    interface{}    `json:"data"`
+	Meta    PaginationMeta `json:"meta"`
+}
+
+// Fungsi bantuan untuk mengirim respons dengan Pagination
+func SendPaginatedSuccess(c *gin.Context, statusCode int, message string, data interface{}, meta PaginationMeta) {
+	c.JSON(statusCode, PaginatedSuccessResponse{
+		Success: true,
+		Message: message,
+		Data:    data,
+		Meta:    meta,
+	})
+}

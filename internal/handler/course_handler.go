@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"math"
 	"net/http"
 	"strconv"
 
@@ -48,13 +49,42 @@ func (h *CourseHandler) CreateCourse(c *gin.Context) {
 
 // GET ALL COURSES
 func (h *CourseHandler) GetAllCourses(c *gin.Context) {
-	courses, err := h.Repo.AmbilSemuaCourse()
+	// 1. Tangkap parameter dari URL, beri nilai default jika tidak diisi
+	pageStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "10")
+
+	// 2. Konversi dari string ke integer
+	page, errPage := strconv.Atoi(pageStr)
+	limit, errLimit := strconv.Atoi(limitStr)
+
+	// Validasi dasar agar user tidak memasukkan angka minus
+	if errPage != nil || page < 1 {
+		page = 1
+	}
+	if errLimit != nil || limit < 1 {
+		limit = 10
+	}
+
+	// 3. Panggil Repository
+	courses, totalItems, err := h.Repo.AmbilSemuaCourse(page, limit)
 	if err != nil {
 		c.Error(utils.NewInternalError("Gagal mengambil data mata pelajaran"))
 		return
 	}
 
-	utils.SendSuccess(c, http.StatusOK, "Berhasil mengambil daftar mata pelajaran", courses)
+	// 4. Hitung Total Halaman (Membulatkan ke atas, misal 11 data / 10 limit = 2 halaman)
+	totalPages := int(math.Ceil(float64(totalItems) / float64(limit)))
+
+	// 5. Susun Metadata
+	meta := utils.PaginationMeta{
+		CurrentPage: page,
+		Limit:       limit,
+		TotalItems:  totalItems,
+		TotalPages:  totalPages,
+	}
+
+	// 6. Kirim menggunakan Amplop Paginated yang baru kita buat!
+	utils.SendPaginatedSuccess(c, http.StatusOK, "Berhasil mengambil daftar mata pelajaran", courses, meta)
 }
 
 // UPDATE COURSE

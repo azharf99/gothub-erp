@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/azharf99/gothub-erp/internal/middleware"
 	"github.com/azharf99/gothub-erp/internal/models"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -22,10 +23,10 @@ func (m *MockCourseRepository) BuatCourse(course *models.Course) error {
 	return nil
 }
 
-func (m *MockCourseRepository) AmbilSemuaCourse() ([]models.Course, error) {
+func (m *MockCourseRepository) AmbilSemuaCourse(page, limit int) ([]models.Course, int64, error) {
 	return []models.Course{
 		{ID: 1, Nama: "Biologi Kelas XI", TeacherID: 1},
-	}, nil
+	}, int64(1), nil
 }
 
 func (m *MockCourseRepository) AmbilCourseByID(id uint) (*models.Course, error) {
@@ -47,13 +48,19 @@ func mockAuthMiddleware(userID uint, role string) gin.HandlerFunc {
 	}
 }
 
+func setupTestRouter() *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.Use(middleware.GlobalErrorHandler()) // Semua tes otomatis pakai penangkap error
+	return router
+}
+
 // ==========================================
 // 2. TEST CREATE COURSE
 // ==========================================
 func TestCreateCourse_Success(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	router := setupTestRouter()
 	handler := &CourseHandler{Repo: &MockCourseRepository{}}
-	router := gin.Default()
 
 	// Suntikkan data bahwa yang sedang login adalah User ID 1 dengan Role Guru
 	router.Use(mockAuthMiddleware(1, "Guru"))
@@ -74,10 +81,8 @@ func TestCreateCourse_Success(t *testing.T) {
 // 3. TEST UPDATE COURSE - DITOLAK (Bukan Pemilik)
 // ==========================================
 func TestUpdateCourse_Forbidden(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	router := setupTestRouter()
 	handler := &CourseHandler{Repo: &MockCourseRepository{}}
-	router := gin.Default()
-
 	// Skenario: Yang login adalah User ID 99 (Bukan pemilik mapel ID 1) dan rolenya hanya Guru
 	router.Use(mockAuthMiddleware(99, "Guru"))
 	router.PUT("/courses/:id", handler.UpdateCourse)
@@ -98,9 +103,8 @@ func TestUpdateCourse_Forbidden(t *testing.T) {
 // 4. TEST UPDATE COURSE - SUKSES (Oleh Admin)
 // ==========================================
 func TestUpdateCourse_Admin_Success(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	router := setupTestRouter()
 	handler := &CourseHandler{Repo: &MockCourseRepository{}}
-	router := gin.Default()
 
 	// Skenario: Yang login adalah User ID 99 (Bukan pemilik mapel), TAPI rolenya Admin
 	router.Use(mockAuthMiddleware(99, "Admin"))
