@@ -16,6 +16,7 @@ import (
 	"github.com/azharf99/gothub-erp/internal/models"
 	"github.com/azharf99/gothub-erp/internal/repository"
 	"github.com/azharf99/gothub-erp/internal/routes"
+	"github.com/azharf99/gothub-erp/internal/service"
 	"github.com/gin-contrib/cors"
 )
 
@@ -67,13 +68,26 @@ func main() {
 	// 4. DEPENDENCY INJECTION
 	// ==========================================
 	// Suntikkan koneksi DB 'db' ke dalam PostgresRepo
-	dbRepo := repository.NewPostgresRepo(db)
-
-	// Suntikkan Repo ke dalam Handler
-	userHandler := &handler.UserHandler{Repo: dbRepo}
-
+	// ==========================================
+	// INIT REPOSITORY
+	// ==========================================
+	userRepo := repository.NewPostgresRepo(db)
 	courseRepo := repository.NewCourseRepo(db)
-	courseHandler := &handler.CourseHandler{Repo: courseRepo}
+
+	// ==========================================
+	// INIT SERVICE (Lapisan Baru)
+	// ==========================================
+	// Impor package service buatanmu di atas: "github.com/azharf99/gothub-erp/internal/service"
+	userService := service.NewUserService(userRepo)
+	courseService := service.NewCourseService(courseRepo)
+
+	// ==========================================
+	// INIT HANDLER
+	// ==========================================
+	// Handler sekarang menerima Service, bukan Repository
+	userHandler := &handler.UserHandler{Service: userService}
+	courseHandler := &handler.CourseHandler{Service: courseService}
+
 	// ==========================================
 	// 5. SETUP ROUTER & START SERVER
 	// ==========================================

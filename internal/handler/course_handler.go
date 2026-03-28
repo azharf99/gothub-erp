@@ -10,42 +10,15 @@ import (
 )
 
 type CourseHandler struct {
-	Repo models.CourseRepository
-}
-
-// CREATE COURSE
-func (h *CourseHandler) CreateCourse(c *gin.Context) {
-	var req models.CourseRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(utils.NewBadRequest("Format JSON tidak sesuai atau data tidak lengkap"))
-		return
-	}
-
-	userID, _, _, err := utils.GetCurrentUser(c)
-	if err != nil {
-		c.Error(err)
-		return
-	}
-
-	newCourse := models.Course{
-		Nama:      req.Nama,
-		Deskripsi: req.Deskripsi,
-		TeacherID: userID,
-	}
-
-	if err := h.Repo.BuatCourse(&newCourse); err != nil {
-		c.Error(utils.NewInternalError("Gagal menyimpan mata pelajaran ke database"))
-		return
-	}
-
-	utils.SendSuccess(c, http.StatusCreated, "Mata pelajaran berhasil ditambahkan", newCourse)
+	// UBAH: Sekarang Handler bergantung pada Service, bukan lagi Repository
+	Service models.CourseService
 }
 
 // GET ALL COURSES
 func (h *CourseHandler) GetAllCourses(c *gin.Context) {
 	page, limit := utils.GetPaginationParams(c)
 
-	courses, totalItems, err := h.Repo.AmbilSemuaCourse(page, limit)
+	courses, totalItems, err := h.Service.AmbilSemuaCourse(page, limit)
 	if err != nil {
 		c.Error(utils.NewInternalError("Gagal mengambil data mata pelajaran"))
 		return
@@ -63,6 +36,30 @@ func (h *CourseHandler) GetAllCourses(c *gin.Context) {
 	utils.SendPaginatedSuccess(c, http.StatusOK, "Berhasil mengambil daftar mata pelajaran", courses, meta)
 }
 
+// CREATE COURSE
+func (h *CourseHandler) CreateCourse(c *gin.Context) {
+	var req models.CourseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(utils.NewBadRequest("Format JSON tidak sesuai atau data tidak lengkap"))
+		return
+	}
+
+	userID, _, _, err := utils.GetCurrentUser(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	// Lemparkan ke Service untuk diproses
+	newCourse, err := h.Service.BuatCourse(req, userID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	utils.SendSuccess(c, http.StatusCreated, "Mata pelajaran berhasil ditambahkan", newCourse)
+}
+
 // UPDATE COURSE
 func (h *CourseHandler) UpdateCourse(c *gin.Context) {
 	courseID, err := utils.GetParamID(c, "id")
@@ -73,13 +70,7 @@ func (h *CourseHandler) UpdateCourse(c *gin.Context) {
 
 	var req models.CourseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.Error(utils.NewBadRequest("Format JSON tidak sesuai atau data tidak lengkap"))
-		return
-	}
-
-	course, err := h.Repo.AmbilCourseByID(courseID)
-	if err != nil {
-		c.Error(utils.NewNotFound("Mata pelajaran tidak ditemukan"))
+		c.Error(utils.NewBadRequest("Format JSON tidak sesuai"))
 		return
 	}
 
@@ -89,23 +80,17 @@ func (h *CourseHandler) UpdateCourse(c *gin.Context) {
 		return
 	}
 
-	if userRole != "Admin" && course.TeacherID != userID {
-		c.Error(utils.NewForbidden("Akses ditolak: Anda bukan pengajar mata pelajaran ini"))
+	// Service yang akan pusing memikirkan apakah user ini berhak edit atau tidak
+	updatedCourse, err := h.Service.UpdateCourse(courseID, req, userID, userRole)
+	if err != nil {
+		c.Error(err)
 		return
 	}
 
-	course.Nama = req.Nama
-	course.Deskripsi = req.Deskripsi
-
-	if err := h.Repo.UpdateCourse(course); err != nil {
-		c.Error(utils.NewInternalError("Gagal memperbarui mata pelajaran"))
-		return
-	}
-
-	utils.SendSuccess(c, http.StatusOK, "Mata pelajaran berhasil diperbarui", course)
+	utils.SendSuccess(c, http.StatusOK, "Mata pelajaran berhasil diperbarui", updatedCourse)
 }
 
-// DELETE COURSE (Versi Standar Industri yang Sangat Bersih)
+// DELETE COURSE
 func (h *CourseHandler) DeleteCourse(c *gin.Context) {
 	courseID, err := utils.GetParamID(c, "id")
 	if err != nil {
@@ -119,21 +104,11 @@ func (h *CourseHandler) DeleteCourse(c *gin.Context) {
 		return
 	}
 
-	course, err := h.Repo.AmbilCourseByID(courseID)
-	if err != nil {
-		c.Error(utils.NewNotFound("Mata pelajaran tidak ditemukan"))
+	// Lemparkan ke Service
+	if err := h.Service.HapusCourse(courseID, userID, userRole); err != nil {
+		c.Error(err)
 		return
 	}
 
-	if userRole != "Admin" && course.TeacherID != userID {
-		c.Error(utils.NewForbidden("Akses ditolak: Anda bukan pengajar mata pelajaran ini"))
-		return
-	}
-
-	if err := h.Repo.HapusCourse(courseID); err != nil {
-		c.Error(utils.NewInternalError("Gagal menghapus mata pelajaran"))
-		return
-	}
-
-	utils.SendSuccess(c, 200, "Mata pelajaran berhasil dihapus", nil)
+	utils.SendSuccess(c, http.StatusOK, "Mata pelajaran berhasil dihapus", nil)
 }

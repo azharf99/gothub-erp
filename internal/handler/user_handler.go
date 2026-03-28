@@ -5,14 +5,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/crypto/bcrypt"
 
 	"github.com/azharf99/gothub-erp/internal/models"
 	"github.com/azharf99/gothub-erp/internal/utils"
 )
 
 type UserHandler struct {
-	Repo models.UserRepository
+	Service models.UserService
 }
 
 // ==========================================
@@ -25,28 +24,12 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	newUser, err := h.Service.RegisterUser(req)
 	if err != nil {
-		c.Error(utils.NewInternalError("Gagal memproses password"))
+		c.Error(err)
 		return
 	}
 
-	if validationErr := req.ValidateCustomBusinessLogic(); validationErr != nil {
-		c.Error(utils.NewBadRequest(validationErr.Error()))
-		return
-	}
-
-	newUser := models.User{
-		Nama:     req.Nama,
-		Email:    req.Email,
-		Password: string(hashedPassword),
-		Role:     "Siswa",
-	}
-
-	if err := h.Repo.SimpanUser(&newUser); err != nil {
-		c.Error(utils.NewInternalError("Gagal menyimpan user ke database"))
-		return
-	}
 	utils.SendSuccess(c, http.StatusCreated, "Registrasi berhasil, silakan login", newUser)
 }
 
@@ -60,18 +43,6 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	existingUser, _ := h.Repo.CariBerdasarkanEmail(req.Email)
-	if existingUser != nil {
-		c.Error(utils.NewBadRequest("Email sudah terdaftar"))
-		return
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		c.Error(utils.NewInternalError("Gagal memproses password"))
-		return
-	}
-
 	finalRole := "Siswa"
 
 	currentUserRole, exists := c.Get("role")
@@ -79,16 +50,9 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	if exists && currentUserRole == "Admin" && req.Role != "" {
 		finalRole = req.Role
 	}
-
-	user := models.User{
-		Nama:     req.Nama,
-		Email:    req.Email,
-		Password: string(hashedPassword),
-		Role:     finalRole,
-	}
-
-	if err := h.Repo.SimpanUser(&user); err != nil {
-		c.Error(utils.NewInternalError("Gagal menyimpan data pengguna"))
+	user, err := h.Service.CreateUserFromDashboard(req, finalRole)
+	if err != nil {
+		c.Error(err)
 		return
 	}
 
@@ -106,21 +70,9 @@ func (h *UserHandler) Login(c *gin.Context) {
 		return
 	}
 
-	user, err := h.Repo.CariBerdasarkanEmail(req.Email)
-	if err != nil || user == nil {
-		c.Error(utils.NewUnauthorized("Email atau password salah"))
-		return
-	}
-
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	accessToken, refreshToken, err := h.Service.LoginUser(req)
 	if err != nil {
-		c.Error(utils.NewUnauthorized("Email atau password salah"))
-		return
-	}
-
-	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, user.Email, user.Role)
-	if err != nil {
-		c.Error(utils.NewInternalError("Gagal membuat token autentikasi"))
+		c.Error(err)
 		return
 	}
 
@@ -204,9 +156,9 @@ func (h *UserHandler) Logout(c *gin.Context) {
 func (h *UserHandler) GetAllUsers(c *gin.Context) {
 	page, limit := utils.GetPaginationParams(c)
 
-	users, totalItems, err := h.Repo.AmbilSemuaUser(page, limit)
+	users, totalItems, err := h.Service.GetSemuaUser(page, limit)
 	if err != nil {
-		c.Error(utils.NewInternalError("Gagal mengambil data pengguna"))
+		c.Error(err)
 		return
 	}
 
@@ -238,20 +190,9 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.Repo.AmbilUserByID(targetID)
+	user, err := h.Service.UpdateDataUser(targetID, req)
 	if err != nil {
-		c.Error(utils.NewNotFound("Pengguna tidak ditemukan"))
-		return
-	}
-
-	user.Nama = req.Nama
-	user.Email = req.Email
-	if req.Role != "" {
-		user.Role = req.Role
-	}
-
-	if err := h.Repo.UpdateUser(user); err != nil {
-		c.Error(utils.NewInternalError("Gagal memperbarui data pengguna"))
+		c.Error(err)
 		return
 	}
 
@@ -268,7 +209,7 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.Repo.HapusUser(targetID); err != nil {
+	if err := h.Service.HapusDataUser(targetID); err != nil {
 		c.Error(utils.NewInternalError("Gagal menghapus pengguna"))
 		return
 	}
