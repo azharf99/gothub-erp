@@ -38,25 +38,29 @@ Repositori ini juga merupakan bagian dari materi *masterclass* pengembangan web 
 ├── Dockerfile                   # Resep containerisasi (Multi-stage build)
 ├── docker-compose.yml           # Orkestrasi layanan API dan Database
 └── .env.example                 # Contoh environment variables
+```
 
-
-🚀 Cara Menjalankan Aplikasi
+## 🚀 Cara Menjalankan Aplikasi
 Syarat Sistem
 Pastikan kamu telah menginstal Docker dan Docker Compose di komputermu.
 
 Langkah Instalasi
 Clone repositori ini:
 
-Bash
+```bash
 git clone [https://github.com/username-kamu/gothub-erp.git](https://github.com/username-kamu/gothub-erp.git)
 cd gothub-erp
+```
+
 Siapkan Environment:
 Duplikat file .env.example menjadi .env dan sesuaikan kredensial di dalamnya (Gunakan kata sandi yang kuat untuk JWT dan Database).
 
 Jalankan dengan Docker Compose:
 
-Bash
+```bash
 docker-compose up -d --build
+```
+
 Testing API:
 Aplikasi akan berjalan di http://localhost:8080. Kamu bisa mengimpor file Gothub_ERP.postman_collection.json (jika kamu menyertakannya di repo) ke dalam aplikasi Postman untuk langsung menguji endpoint /register, /login, /refresh-token, dan /profile.
 
@@ -82,3 +86,4 @@ DB_PASSWORD=masukkan_password_kamu_di_sini
 DB_NAME=erp_db
 DB_PORT=5432
 JWT_SECRET=masukkan_kunci_rahasia_jwt_di_sini
+```

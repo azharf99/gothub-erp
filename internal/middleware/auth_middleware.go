@@ -13,14 +13,14 @@ func RequireAuth() gin.HandlerFunc {
 		// 1. Ambil header Authorization
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Akses ditolak, token tidak ditemukan"})
+			c.AbortWithError(http.StatusUnauthorized, utils.NewUnauthorized("Akses ditolak, token tidak ditemukan"))
 			return
 		}
 
 		// 2. Format token harus "Bearer <token>"
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Format token tidak valid"})
+			c.AbortWithError(http.StatusUnauthorized, utils.NewUnauthorized("Format token tidak valid"))
 			return
 		}
 
@@ -29,13 +29,13 @@ func RequireAuth() gin.HandlerFunc {
 		// 3. Validasi token menggunakan utility kita
 		claims, err := utils.ValidateToken(tokenString)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token tidak valid atau sudah kedaluwarsa"})
+			c.AbortWithError(http.StatusUnauthorized, utils.NewUnauthorized("Token tidak valid atau sudah kedaluwarsa"))
 			return
 		}
 
 		// 4. Pastikan ini adalah Access Token, bukan Refresh Token
 		if claims.Type != "access" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Harap gunakan Access Token"})
+			c.AbortWithError(http.StatusUnauthorized, utils.NewUnauthorized("Harap gunakan Access Token"))
 			return
 		}
 
@@ -55,7 +55,7 @@ func RequireRole(allowedRoles ...string) gin.HandlerFunc {
 		// Ambil role user dari context (yang sebelumnya diisi oleh RequireAuth)
 		userRole, exists := c.Get("role")
 		if !exists {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Role tidak ditemukan"})
+			c.AbortWithError(http.StatusForbidden, utils.NewForbidden("Role tidak ditemukan"))
 			return
 		}
 
@@ -70,9 +70,7 @@ func RequireRole(allowedRoles ...string) gin.HandlerFunc {
 
 		// Jika tidak diizinkan, tolak aksesnya!
 		if !isAllowed {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
-				"error": "Akses ditolak: Anda tidak memiliki izin untuk mengakses resource ini",
-			})
+			c.AbortWithError(http.StatusForbidden, utils.NewForbidden("Akses ditolak: Anda tidak memiliki izin untuk mengakses resource ini"))
 			return
 		}
 

@@ -10,7 +10,6 @@ func SetupRoutes(router *gin.Engine, userHandler *handler.UserHandler, courseHan
 	// Ini memastikan semua request melewati penangkap error kita
 	router.Use(middleware.GlobalErrorHandler())
 	router.Use(middleware.SecurityHeaders())
-	router.Use(middleware.CORSMiddleware())
 	api := router.Group("/api/v1")
 	{
 		// 🔓 RUTE PUBLIK

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -15,6 +16,7 @@ import (
 	"github.com/azharf99/gothub-erp/internal/models"
 	"github.com/azharf99/gothub-erp/internal/repository"
 	"github.com/azharf99/gothub-erp/internal/routes"
+	"github.com/gin-contrib/cors"
 )
 
 func main() {
@@ -76,6 +78,15 @@ func main() {
 	// 5. SETUP ROUTER & START SERVER
 	// ==========================================
 	router := gin.Default()
+
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173", "http://127.0.0.1:5173"},    // Izinkan frontend lokalmu
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},  // Izinkan semua metode CRUD
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"}, // Izinkan header token
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour, // Browser tidak perlu repot tanya OPTIONS lagi selama 12 jam
+	}))
 
 	// Daftarkan semua rute API
 	routes.SetupRoutes(router, userHandler, courseHandler)

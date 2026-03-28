@@ -230,15 +230,12 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	old_Password := user.Password // Simpan password lama untuk memastikan tidak berubah
-
 	// Update data yang diizinkan
 	user.Nama = req.Nama
 	user.Email = req.Email
 	if req.Role != "" {
 		user.Role = req.Role // Hanya izinkan update role jika dikirim di JSON
 	}
-	user.Password = old_Password
 
 	if err := h.Repo.UpdateUser(user); err != nil {
 		c.Error(utils.NewInternalError("Gagal memperbarui data pengguna"))
