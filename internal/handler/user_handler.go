@@ -3,7 +3,6 @@ package handler
 import (
 	"math"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -17,7 +16,7 @@ type UserHandler struct {
 }
 
 // ==========================================
-// REGISTER LOGIC (Hash Password dan Validasi Bisnis)
+// REGISTER (Public)
 // ==========================================
 func (h *UserHandler) Register(c *gin.Context) {
 	var req models.RegisterRequest
@@ -26,29 +25,24 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Hashing Password menggunakan bcrypt
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.Error(utils.NewInternalError("Gagal memproses password"))
 		return
 	}
 
-	// Validasi Bisnis Custom (Contoh: Nama tidak boleh "admin")
-	validationErr := req.ValidateCustomBusinessLogic()
-	if validationErr != nil {
+	if validationErr := req.ValidateCustomBusinessLogic(); validationErr != nil {
 		c.Error(utils.NewBadRequest(validationErr.Error()))
 		return
 	}
 
-	// 2. Siapkan model User untuk disimpan
 	newUser := models.User{
 		Nama:     req.Nama,
 		Email:    req.Email,
-		Password: string(hashedPassword), // Simpan versi hash-nya, BUKAN versi aslinya
-		Role:     req.Role,
+		Password: string(hashedPassword),
+		Role:     "Siswa",
 	}
 
-	// 3. Simpan ke database
 	if err := h.Repo.SimpanUser(&newUser); err != nil {
 		c.Error(utils.NewInternalError("Gagal menyimpan user ke database"))
 		return
@@ -57,31 +51,73 @@ func (h *UserHandler) Register(c *gin.Context) {
 }
 
 // ==========================================
+// CREATE USER (Authenticated Only)
+// ==========================================
+func (h *UserHandler) CreateUser(c *gin.Context) {
+	var req models.RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(utils.NewBadRequest(err.Error()))
+		return
+	}
+
+	existingUser, _ := h.Repo.CariBerdasarkanEmail(req.Email)
+	if existingUser != nil {
+		c.Error(utils.NewBadRequest("Email sudah terdaftar"))
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.Error(utils.NewInternalError("Gagal memproses password"))
+		return
+	}
+
+	finalRole := "Siswa"
+
+	currentUserRole, exists := c.Get("role")
+
+	if exists && currentUserRole == "Admin" && req.Role != "" {
+		finalRole = req.Role
+	}
+
+	user := models.User{
+		Nama:     req.Nama,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+		Role:     finalRole,
+	}
+
+	if err := h.Repo.SimpanUser(&user); err != nil {
+		c.Error(utils.NewInternalError("Gagal menyimpan data pengguna"))
+		return
+	}
+
+	utils.SendSuccess(c, http.StatusCreated, "Pengguna berhasil ditambahkan", user)
+}
+
+// ==========================================
 // LOGIN LOGIC (Verifikasi Hash & Buat JWT)
 // ==========================================
 func (h *UserHandler) Login(c *gin.Context) {
-	var req models.LoginRequest // Pastikan LoginRequest ada di models (Email & Password)
+	var req models.LoginRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(utils.NewBadRequest("Format JSON tidak sesuai atau data tidak lengkap"))
 		return
 	}
 
-	// 1. Cari user di database berdasarkan Email
 	user, err := h.Repo.CariBerdasarkanEmail(req.Email)
 	if err != nil || user == nil {
 		c.Error(utils.NewUnauthorized("Email atau password salah"))
 		return
 	}
 
-	// 2. Bandingkan password asli dari request dengan password hash dari database
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 	if err != nil {
 		c.Error(utils.NewUnauthorized("Email atau password salah"))
 		return
 	}
 
-	// 3. Jika password cocok, Generate KEDUA Token
 	accessToken, refreshToken, err := utils.GenerateTokens(user.ID, user.Email, user.Role)
 	if err != nil {
 		c.Error(utils.NewInternalError("Gagal membuat token autentikasi"))
@@ -109,20 +145,17 @@ func (h *UserHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// Validasi refresh token
 	claims, err := utils.ValidateToken(req.RefreshToken)
 	if err != nil {
 		c.Error(utils.NewUnauthorized("Refresh token tidak valid atau kedaluwarsa. Silakan login ulang."))
 		return
 	}
 
-	// Pastikan tipe tokennya benar-benar "refresh"
 	if claims.Type != "refresh" {
 		c.Error(utils.NewUnauthorized("Token yang diberikan bukan refresh token"))
 		return
 	}
 
-	// Buat pasangan token baru
 	newAccessToken, newRefreshToken, err := utils.GenerateTokens(claims.UserID, claims.Email, claims.Role)
 	if err != nil {
 		c.Error(utils.NewInternalError("Gagal membuat token baru"))
@@ -137,13 +170,14 @@ func (h *UserHandler) RefreshToken(c *gin.Context) {
 }
 
 // ==========================================
-// CONTOH ENDPOINT YANG DILINDUNGI
+// PROFIL USER
 // ==========================================
 func (h *UserHandler) GetProfile(c *gin.Context) {
-	// Mengambil data yang diselipkan oleh Middleware ke dalam Context
-	userID, _ := c.Get("userID")
-	email, _ := c.Get("email")
-	role, _ := c.Get("role")
+	userID, email, role, err := utils.GetCurrentUser(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
 	utils.SendSuccess(c, http.StatusOK, "Selamat datang di area terlarang!", gin.H{
 		"user_id": userID,
@@ -168,33 +202,16 @@ func (h *UserHandler) Logout(c *gin.Context) {
 // GET ALL USERS (Hanya Admin)
 // ==========================================
 func (h *UserHandler) GetAllUsers(c *gin.Context) {
-	// 1. Tangkap parameter dari URL, beri nilai default jika tidak diisi
-	pageStr := c.DefaultQuery("page", "1")
-	limitStr := c.DefaultQuery("limit", "10")
+	page, limit := utils.GetPaginationParams(c)
 
-	// 2. Konversi dari string ke integer
-	page, errPage := strconv.Atoi(pageStr)
-	limit, errLimit := strconv.Atoi(limitStr)
-
-	// Validasi dasar agar user tidak memasukkan angka minus
-	if errPage != nil || page < 1 {
-		page = 1
-	}
-	if errLimit != nil || limit < 1 {
-		limit = 10
-	}
-
-	// 3. Panggil Repository
 	users, totalItems, err := h.Repo.AmbilSemuaUser(page, limit)
 	if err != nil {
 		c.Error(utils.NewInternalError("Gagal mengambil data pengguna"))
 		return
 	}
 
-	// 4. Hitung Total Halaman (Membulatkan ke atas, misal 11 data / 10 limit = 2 halaman)
 	totalPages := int(math.Ceil(float64(totalItems) / float64(limit)))
 
-	// 5. Susun Metadata
 	meta := utils.PaginationMeta{
 		CurrentPage: page,
 		Limit:       limit,
@@ -209,11 +226,9 @@ func (h *UserHandler) GetAllUsers(c *gin.Context) {
 // UPDATE USER
 // ==========================================
 func (h *UserHandler) UpdateUser(c *gin.Context) {
-	// Mengambil ID dari URL parameter (misal: /users/2)
-	idParam := c.Param("id")
-	targetID, err := strconv.ParseUint(idParam, 10, 32)
+	targetID, err := utils.GetParamID(c, "id")
 	if err != nil {
-		c.Error(utils.NewBadRequest("ID pengguna tidak valid"))
+		c.Error(err)
 		return
 	}
 
@@ -223,18 +238,16 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	// Cari user yang mau diupdate
-	user, err := h.Repo.AmbilUserByID(uint(targetID))
+	user, err := h.Repo.AmbilUserByID(targetID)
 	if err != nil {
 		c.Error(utils.NewNotFound("Pengguna tidak ditemukan"))
 		return
 	}
 
-	// Update data yang diizinkan
 	user.Nama = req.Nama
 	user.Email = req.Email
 	if req.Role != "" {
-		user.Role = req.Role // Hanya izinkan update role jika dikirim di JSON
+		user.Role = req.Role
 	}
 
 	if err := h.Repo.UpdateUser(user); err != nil {
@@ -246,17 +259,16 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 }
 
 // ==========================================
-// DELETE USER
+// DELETE USER (Hanya Admin)
 // ==========================================
 func (h *UserHandler) DeleteUser(c *gin.Context) {
-	idParam := c.Param("id")
-	targetID, err := strconv.ParseUint(idParam, 10, 32)
+	targetID, err := utils.GetParamID(c, "id")
 	if err != nil {
-		c.Error(utils.NewBadRequest("ID pengguna tidak valid"))
+		c.Error(err)
 		return
 	}
 
-	if err := h.Repo.HapusUser(uint(targetID)); err != nil {
+	if err := h.Repo.HapusUser(targetID); err != nil {
 		c.Error(utils.NewInternalError("Gagal menghapus pengguna"))
 		return
 	}

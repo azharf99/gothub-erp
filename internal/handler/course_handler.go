@@ -3,7 +3,6 @@ package handler
 import (
 	"math"
 	"net/http"
-	"strconv"
 
 	"github.com/azharf99/gothub-erp/internal/models"
 	"github.com/azharf99/gothub-erp/internal/utils"
@@ -22,21 +21,16 @@ func (h *CourseHandler) CreateCourse(c *gin.Context) {
 		return
 	}
 
-	// MENGAMBIL ID DARI TOKEN JWT (Diset oleh middleware RequireAuth)
-	userIDStr, exists := c.Get("userID")
-	if !exists {
-		c.Error(utils.NewUnauthorized("Sesi Anda tidak valid, silakan login ulang"))
+	userID, _, _, err := utils.GetCurrentUser(c)
+	if err != nil {
+		c.Error(err)
 		return
 	}
 
-	// Konversi tipe data sesuai kebutuhan
-	teacherID := userIDStr.(uint)
-
-	// Bentuk model untuk disimpan
 	newCourse := models.Course{
 		Nama:      req.Nama,
 		Deskripsi: req.Deskripsi,
-		TeacherID: teacherID, // Otomatis mengikat mata pelajaran ke guru yang sedang login!
+		TeacherID: userID,
 	}
 
 	if err := h.Repo.BuatCourse(&newCourse); err != nil {
@@ -49,33 +43,16 @@ func (h *CourseHandler) CreateCourse(c *gin.Context) {
 
 // GET ALL COURSES
 func (h *CourseHandler) GetAllCourses(c *gin.Context) {
-	// 1. Tangkap parameter dari URL, beri nilai default jika tidak diisi
-	pageStr := c.DefaultQuery("page", "1")
-	limitStr := c.DefaultQuery("limit", "10")
+	page, limit := utils.GetPaginationParams(c)
 
-	// 2. Konversi dari string ke integer
-	page, errPage := strconv.Atoi(pageStr)
-	limit, errLimit := strconv.Atoi(limitStr)
-
-	// Validasi dasar agar user tidak memasukkan angka minus
-	if errPage != nil || page < 1 {
-		page = 1
-	}
-	if errLimit != nil || limit < 1 {
-		limit = 10
-	}
-
-	// 3. Panggil Repository
 	courses, totalItems, err := h.Repo.AmbilSemuaCourse(page, limit)
 	if err != nil {
 		c.Error(utils.NewInternalError("Gagal mengambil data mata pelajaran"))
 		return
 	}
 
-	// 4. Hitung Total Halaman (Membulatkan ke atas, misal 11 data / 10 limit = 2 halaman)
 	totalPages := int(math.Ceil(float64(totalItems) / float64(limit)))
 
-	// 5. Susun Metadata
 	meta := utils.PaginationMeta{
 		CurrentPage: page,
 		Limit:       limit,
@@ -83,16 +60,14 @@ func (h *CourseHandler) GetAllCourses(c *gin.Context) {
 		TotalPages:  totalPages,
 	}
 
-	// 6. Kirim menggunakan Amplop Paginated yang baru kita buat!
 	utils.SendPaginatedSuccess(c, http.StatusOK, "Berhasil mengambil daftar mata pelajaran", courses, meta)
 }
 
 // UPDATE COURSE
 func (h *CourseHandler) UpdateCourse(c *gin.Context) {
-	idParam := c.Param("id")
-	courseID, err := strconv.ParseUint(idParam, 10, 32)
+	courseID, err := utils.GetParamID(c, "id")
 	if err != nil {
-		c.Error(utils.NewBadRequest("ID mata pelajaran tidak valid"))
+		c.Error(err)
 		return
 	}
 
@@ -102,26 +77,23 @@ func (h *CourseHandler) UpdateCourse(c *gin.Context) {
 		return
 	}
 
-	// Cari mapel di database
-	course, err := h.Repo.AmbilCourseByID(uint(courseID))
+	course, err := h.Repo.AmbilCourseByID(courseID)
 	if err != nil {
 		c.Error(utils.NewNotFound("Mata pelajaran tidak ditemukan"))
 		return
 	}
 
-	// ==========================================
-	// OTORISASI: Cek apakah user berhak mengubah?
-	// ==========================================
-	userID, _ := c.Get("userID")
-	userRole, _ := c.Get("role")
+	userID, _, userRole, err := utils.GetCurrentUser(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
 
-	// Jika dia BUKAN Admin, dan dia BUKAN guru pembuat mapel ini -> Tolak!
-	if userRole != "Admin" && course.TeacherID != userID.(uint) {
+	if userRole != "Admin" && course.TeacherID != userID {
 		c.Error(utils.NewForbidden("Akses ditolak: Anda bukan pengajar mata pelajaran ini"))
 		return
 	}
 
-	// Update data
 	course.Nama = req.Nama
 	course.Deskripsi = req.Deskripsi
 
@@ -133,36 +105,35 @@ func (h *CourseHandler) UpdateCourse(c *gin.Context) {
 	utils.SendSuccess(c, http.StatusOK, "Mata pelajaran berhasil diperbarui", course)
 }
 
-// DELETE COURSE
+// DELETE COURSE (Versi Standar Industri yang Sangat Bersih)
 func (h *CourseHandler) DeleteCourse(c *gin.Context) {
-	idParam := c.Param("id")
-	courseID, err := strconv.ParseUint(idParam, 10, 32)
+	courseID, err := utils.GetParamID(c, "id")
 	if err != nil {
-		c.Error(utils.NewBadRequest("ID mata pelajaran tidak valid"))
+		c.Error(err)
 		return
 	}
 
-	course, err := h.Repo.AmbilCourseByID(uint(courseID))
+	userID, _, userRole, err := utils.GetCurrentUser(c)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	course, err := h.Repo.AmbilCourseByID(courseID)
 	if err != nil {
 		c.Error(utils.NewNotFound("Mata pelajaran tidak ditemukan"))
 		return
 	}
 
-	// ==========================================
-	// OTORISASI KEPEMILIKAN
-	// ==========================================
-	userID, _ := c.Get("userID")
-	userRole, _ := c.Get("role")
-
-	if userRole != "Admin" && course.TeacherID != userID.(uint) {
-		c.Error(utils.NewForbidden("Akses ditolak: Anda hanya dapat menghapus mata pelajaran yang Anda buat"))
+	if userRole != "Admin" && course.TeacherID != userID {
+		c.Error(utils.NewForbidden("Akses ditolak: Anda bukan pengajar mata pelajaran ini"))
 		return
 	}
 
-	if err := h.Repo.HapusCourse(uint(courseID)); err != nil {
+	if err := h.Repo.HapusCourse(courseID); err != nil {
 		c.Error(utils.NewInternalError("Gagal menghapus mata pelajaran"))
 		return
 	}
 
-	utils.SendSuccess(c, http.StatusOK, "Mata pelajaran berhasil dihapus", nil)
+	utils.SendSuccess(c, 200, "Mata pelajaran berhasil dihapus", nil)
 }

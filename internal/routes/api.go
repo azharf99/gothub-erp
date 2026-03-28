@@ -36,6 +36,8 @@ func SetupRoutes(router *gin.Engine, userHandler *handler.UserHandler, courseHan
 				teacherRoutes.DELETE("/:id", courseHandler.DeleteCourse) // <<< TAMBAHAN DELETE
 			}
 
+			protected.POST("/users", userHandler.CreateUser)
+
 			// 👑 GRUP MANAJEMEN USER (Hanya Super Admin)
 			adminRoutes := protected.Group("/users")
 			adminRoutes.Use(middleware.RequireRole("Admin"))
