@@ -43,14 +43,14 @@ func (r *PostgresRepo) AmbilSemuaUser(page int, limit int) ([]models.User, int64
 	// Rumus: (Halaman Saat Ini - 1) * Limit
 	offset := (page - 1) * limit
 
-	err := r.DB.Select("id", "nama", "email", "role", "created_at", "updated_at").Offset(offset).Limit(limit).Find(&users).Order("nama ASC").Error
+	err := r.DB.Select("id", "nama", "email", "role", "created_at", "updated_at").Offset(offset).Limit(limit).Find(&users).Error
 	return users, totalItems, err
 }
 
 // READ: Ambil Satu User
 func (r *PostgresRepo) AmbilUserByID(id uint) (*models.User, error) {
 	var user models.User
-	err := r.DB.Select("id", "nama", "email", "role", "created_at", "updated_at").First(&user, id).Error
+	err := r.DB.Select("id", "nama", "email", "password", "role", "created_at", "updated_at").First(&user, id).Error
 	if err != nil {
 		return nil, err
 	}
