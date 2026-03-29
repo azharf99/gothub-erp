@@ -4,7 +4,7 @@ services:
   # ----------------------------------------
   db:
     image: postgres:15-alpine
-    container_name: erp_db_container
+    container_name: gothub_db
     restart: always
     environment:
       POSTGRES_USER: ${DB_USER?Error! DB_USER belum diset di file .env!}
@@ -19,8 +19,8 @@ services:
   # SERVICE 2: Aplikasi Go (API)
   # ----------------------------------------
   api:
-    build: . # Membangun image dari Dockerfile di folder ini
-    container_name: erp_api_container
+    image: azharfa/gothub-erp-api:latest
+    container_name: gothub_api
     restart: always
     ports:
       - "8080:8080"
@@ -33,6 +33,7 @@ services:
       - DB_PORT=5432
       - PORT=8080
       - JWT_SECRET=${JWT_SECRET:-kunci_rahasia_kamu}
+      - GIN_MODE=release
     depends_on:
       - db # Pastikan database menyala lebih dulu sebelum API menyala
 

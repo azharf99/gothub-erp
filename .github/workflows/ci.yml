@@ -1,33 +1,65 @@
-name: Gothub ERP - Unit Test Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main" ] # Hanya trigger deploy jika push ke branch main
   pull_request:
-    branches: [ "main", "master" ]
-
-# >>> TAMBAHKAN BLOK INI <<<
-# Memaksa GitHub Actions menggunakan Node.js 24 agar warning hilang
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    branches: [ "main" ]
 
 jobs:
   test:
     name: Run Unit Tests
     runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    - name: Run Tests
+      run: go test -v ./...
+
+  build-and-deploy:
+    name: Build Image and Deploy to VPS
+    needs: test # Pastikan test lulus dulu, baru boleh deploy!
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' # Hanya jalankan saat push ke main
 
     steps:
-    - name: 📥 Checkout Repository
-      uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v3
 
-    - name: ⚙️ Setup Golang
-      uses: actions/setup-go@v5
+    # 1. Login ke Docker Hub
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
       with:
-        go-version: '1.26'
-        cache: true 
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: 📦 Download Dependencies
-      run: go mod download
+    # 2. Build Docker Image dan Push ke Docker Hub
+    - name: Build and Push Docker Image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        # Format penamaan di Docker Hub: username_dockerhub/nama_image:tag
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/gothub-erp-api:latest
 
-    - name: 🧪 Run Unit Tests
-      run: go test -v ./...
+    # 3. SSH ke VPS untuk eksekusi Pull & Restart
+    - name: Deploy to VPS via SSH
+      uses: appleboy/ssh-action@v0.1.10
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          mkdir -p /opt/gothub-erp
+          cd /opt/gothub-erp
+          
+          curl -O https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose.yml
+          
+          # Tarik image terbaru dari Docker Hub
+          docker compose pull
+          
+          docker compose up -d
+          docker image prune -f
