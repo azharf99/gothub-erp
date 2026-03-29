@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -16,8 +18,7 @@ import (
 	"github.com/azharf99/gothub-erp/internal/models"
 	"github.com/azharf99/gothub-erp/internal/repository"
 	"github.com/azharf99/gothub-erp/internal/routes"
-	"github.com/azharf99/gothub-erp/internal/service"
-	"github.com/gin-contrib/cors"
+	"github.com/azharf99/gothub-erp/internal/service" // Pastikan import service buatanmu ada di sini
 )
 
 func main() {
@@ -26,13 +27,18 @@ func main() {
 	// ==========================================
 	err := godotenv.Load()
 	if err != nil {
-		log.Println("Peringatan: File .env tidak ditemukan, menggunakan environment system")
+		log.Println("Peringatan: File .env tidak ditemukan, membaca environment variable dari sistem (Docker/GCP)")
+	}
+
+	// Atur Gin Mode sesuai environment (release untuk GCP, debug untuk lokal)
+	ginMode := os.Getenv("GIN_MODE")
+	if ginMode == "release" {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
 	// ==========================================
 	// 2. KONFIGURASI DATABASE POSTGRESQL
 	// ==========================================
-	// Merangkai Data Source Name (DSN) dari variabel .env
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Jakarta",
 		os.Getenv("DB_HOST"),
@@ -42,7 +48,6 @@ func main() {
 		os.Getenv("DB_PORT"),
 	)
 
-	// Membuka koneksi ke PostgreSQL menggunakan GORM
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Gagal terhubung ke database PostgreSQL:", err)
@@ -50,68 +55,69 @@ func main() {
 	fmt.Println("Berhasil terhubung ke database PostgreSQL!")
 
 	// ==========================================
-	// 3. AUTO MIGRATION (Keajaiban GORM)
+	// 3. AUTO MIGRATION & SEEDER
 	// ==========================================
-	// GORM akan membaca struct User dan otomatis membuatkan tabel 'users'
-	// lengkap dengan kolom, tipe data, dan primary key-nya jika belum ada.
 	err = db.AutoMigrate(&models.User{}, &models.Course{})
 	if err != nil {
 		log.Fatal("Gagal melakukan migrasi database:", err)
 	}
 	fmt.Println("Migrasi database berhasil!")
 
-	// 3. 2 JALANKAN SEEDER DI SINI
 	database.SeedSuperAdmin(db)
-	fmt.Println("Seeding data berhasil!")
 
 	// ==========================================
-	// 4. DEPENDENCY INJECTION
+	// 4. DEPENDENCY INJECTION (CLEAN ARCHITECTURE)
 	// ==========================================
-	// Suntikkan koneksi DB 'db' ke dalam PostgresRepo
-	// ==========================================
-	// INIT REPOSITORY
-	// ==========================================
+	// REPOSITORY LAYER
 	userRepo := repository.NewPostgresRepo(db)
 	courseRepo := repository.NewCourseRepo(db)
 
-	// ==========================================
-	// INIT SERVICE (Lapisan Baru)
-	// ==========================================
-	// Impor package service buatanmu di atas: "github.com/azharf99/gothub-erp/internal/service"
+	// SERVICE LAYER (Otak Aplikasi)
 	userService := service.NewUserService(userRepo)
 	courseService := service.NewCourseService(courseRepo)
 
-	// ==========================================
-	// INIT HANDLER
-	// ==========================================
-	// Handler sekarang menerima Service, bukan Repository
+	// HANDLER LAYER (Menerima Service, bukan Repository)
 	userHandler := &handler.UserHandler{Service: userService}
 	courseHandler := &handler.CourseHandler{Service: courseService}
 
 	// ==========================================
-	// 5. SETUP ROUTER & START SERVER
+	// 5. SETUP ROUTER & KEAMANAN
 	// ==========================================
 	router := gin.Default()
 
+	// KEAMANAN: Mematikan kepercayaan proxy secara default untuk mencegah spoofing IP.
+	// Jika nanti kamu butuh IP asli user di belakang GCP Load Balancer, ubah nil menjadi IP Load Balancer GCP.
+	if err := router.SetTrustedProxies(nil); err != nil {
+		log.Println("Peringatan gagal mengatur Trusted Proxies:", err)
+	}
+
+	// KEAMANAN: Konfigurasi CORS Dinamis
+	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
+	var allowedOrigins []string
+	if allowedOriginsEnv == "" {
+		allowedOrigins = []string{"http://localhost:5173"} // Fallback aman
+	} else {
+		allowedOrigins = strings.Split(allowedOriginsEnv, ",")
+	}
+
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://127.0.0.1:5173"},    // Izinkan frontend lokalmu
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},  // Izinkan semua metode CRUD
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"}, // Izinkan header token
+		AllowOrigins:     allowedOrigins,
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
-		MaxAge:           12 * time.Hour, // Browser tidak perlu repot tanya OPTIONS lagi selama 12 jam
+		MaxAge:           12 * time.Hour,
 	}))
 
 	// Daftarkan semua rute API
 	routes.SetupRoutes(router, userHandler, courseHandler)
 
-	// Ambil port dari .env, default ke 8080 jika kosong
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	fmt.Printf("ERP Server berjalan di port %s...\n", port)
+	fmt.Printf("ERP Server berjalan dalam mode %s di port %s...\n", gin.Mode(), port)
 	if err := router.Run(":" + port); err != nil {
 		log.Fatal("Gagal menyalakan server:", err)
 	}
