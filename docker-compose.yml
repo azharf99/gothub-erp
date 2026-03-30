@@ -39,3 +39,8 @@ services:
 
 volumes:
   pgdata: # Definisi volume untuk penyimpanan database permanen
+
+networks:
+  default:
+    external: true
+    name: shared-network
