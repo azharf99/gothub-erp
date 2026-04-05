@@ -4,10 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
-	"time"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -15,6 +12,7 @@ import (
 
 	"github.com/azharf99/gothub-erp/internal/database"
 	"github.com/azharf99/gothub-erp/internal/handler"
+	"github.com/azharf99/gothub-erp/internal/middleware"
 	"github.com/azharf99/gothub-erp/internal/models"
 	"github.com/azharf99/gothub-erp/internal/repository"
 	"github.com/azharf99/gothub-erp/internal/routes"
@@ -91,23 +89,9 @@ func main() {
 		log.Println("Peringatan gagal mengatur Trusted Proxies:", err)
 	}
 
-	// KEAMANAN: Konfigurasi CORS Dinamis
-	allowedOriginsEnv := os.Getenv("ALLOWED_ORIGINS")
-	var allowedOrigins []string
-	if allowedOriginsEnv == "" {
-		allowedOrigins = []string{"http://localhost:5173"} // Fallback aman
-	} else {
-		allowedOrigins = strings.Split(allowedOriginsEnv, ",")
-	}
-
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     allowedOrigins,
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}))
+	router.Use(middleware.SecurityHeaders())
+	router.Use(middleware.SetupCORS())
+	router.Use(middleware.RateLimiter())
 
 	// Daftarkan semua rute API
 	routes.SetupRoutes(router, userHandler, courseHandler)
