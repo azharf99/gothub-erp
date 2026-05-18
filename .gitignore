@@ -28,3 +28,6 @@ pgdata/
 
 # Go workspace
 go.work
+*.json
+*.postman_collection.json
+Gothub_ERP.postman_collection.json

@@ -1,89 +1,120 @@
-# Gothub ERP - Core Authentication API 🚀
+# Gothub ERP - Core Authentication & Course Management API 🚀
 
 [![Go Version](https://img.shields.io/badge/Go-1.26-00ADD8?style=flat&logo=go)](https://golang.org/)
 [![Gin Framework](https://img.shields.io/badge/Gin-Framework-00ADD8?style=flat)](https://github.com/gin-gonic/gin)
 [![GORM](https://img.shields.io/badge/GORM-PostgreSQL-336791?style=flat&logo=postgresql)](https://gorm.io/)
 [![Docker](https://img.shields.io/badge/Docker-Supported-2496ED?style=flat&logo=docker)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-Sebuah modul backend API berskala industri (Production-Grade) untuk sistem *Enterprise Resource Planning* (ERP). Proyek ini dibangun menggunakan arsitektur *Clean Architecture* untuk memastikan skalabilitas, kemudahan *testing*, dan pemisahan logika bisnis yang jelas.
+Gothub ERP adalah backend API modular berskala industri yang dirancang untuk sistem *Enterprise Resource Planning*. Proyek ini mengimplementasikan **Clean Architecture** (Handler, Service, Repository, Model) untuk memastikan kode yang mudah dikelola, diuji, dan dikembangkan.
 
-Repositori ini juga merupakan bagian dari materi *masterclass* pengembangan web *Full Stack* dan *Cybersecurity* di kanal YouTube **Gothub**.
+Proyek ini mencakup sistem autentikasi yang kuat dengan **Role-Based Access Control (RBAC)** dan manajemen kursus/pengguna yang aman.
 
-## ✨ Fitur Utama
-- **Arsitektur Standar Industri**: Pemisahan lapisan *Handler, Usecase/Service, Repository, dan Model* (Clean Architecture).
-- **Keamanan Lapis Ganda**: Autentikasi menggunakan standar JWT (*JSON Web Token*) dengan implementasi *Access Token* dan *Refresh Token*.
-- **Proteksi Kata Sandi**: Hashing kredensial pengguna menggunakan `bcrypt`.
-- **Database Terkelola**: Relasi dan migrasi otomatis menggunakan GORM dan PostgreSQL.
-- **Containerized**: Siap dideploy ke VPS atau *cloud* mana pun menggunakan Docker & Docker Compose dalam satu perintah.
+## 🌟 Fitur Utama
+
+- **Clean Architecture**: Pemisahan tanggung jawab yang jelas antar lapisan.
+- **Autentikasi Lanjut**: Implementasi JWT dengan *Access Token* dan *Refresh Token*.
+- **Role-Based Access Control (RBAC)**:
+  - **Admin**: Akses penuh ke manajemen user dan sistem.
+  - **Guru**: Manajemen kursus dan nilai.
+  - **Siswa**: Akses terbatas ke kursus dan jadwal.
+- **Keamanan Ketat**:
+  - Password Hashing dengan `bcrypt`.
+  - Rate Limiting untuk mencegah brute force.
+  - Security Headers & CORS terkonfigurasi.
+  - Global Error Handling.
+- **Database Otomatis**: Migrasi otomatis (Auto-migrate) dan Seeder untuk Super Admin.
+- **Siap Docker**: Dukungan penuh containerization dengan Docker & Docker Compose.
 
 ## 🛠️ Tech Stack
-- **Bahasa**: Go (Golang)
-- **Web Framework**: Gin HTTP Framework
-- **ORM**: GORM
-- **Database**: PostgreSQL
-- **Keamanan**: JWT (golang-jwt/jwt/v5), Bcrypt
-- **Infrastruktur**: Docker, Docker Compose (Alpine Linux & Multi-stage Build)
 
-## 📁 Struktur Direktori
+- **Backend**: Go (Golang) v1.26
+- **Web Framework**: [Gin Gonic](https://github.com/gin-gonic/gin)
+- **ORM**: [GORM](https://gorm.io/)
+- **Database**: PostgreSQL
+- **Security**: JWT (golang-jwt), Bcrypt, Security Headers
+- **Infrastruktur**: Docker, Docker Compose
+
+## 📁 Struktur Proyek
+
 ```text
 .
-├── cmd/api/main.go              # Entry point & Dependency Injection
+├── cmd/api/main.go              # Titik masuk aplikasi (Entry Point)
 ├── internal/
-│   ├── handler/                 # Layer HTTP, Request Validation & Response JSON
-│   ├── middleware/              # Layer proteksi rute (JWT Auth)
-│   ├── models/                  # Struct entitas DB dan Payload JSON
-│   ├── repository/              # Layer interaksi langsung dengan PostgreSQL
-│   ├── routes/                  # Pendaftaran Endpoint API
-│   └── utils/                   # Fungsi bantuan (Generate JWT, dsb)
-├── Dockerfile                   # Resep containerisasi (Multi-stage build)
-├── docker-compose.yml           # Orkestrasi layanan API dan Database
-└── .env.example                 # Contoh environment variables
+│   ├── database/                # Seeder & Konfigurasi DB
+│   ├── handler/                 # Controller / HTTP Interface
+│   ├── middleware/              # Auth, Error, Security, Rate Limit
+│   ├── models/                  # Struct entitas & Database
+│   ├── repository/              # Data Access Layer
+│   ├── routes/                  # Definisi Endpoint API
+│   ├── service/                 # Business Logic Layer (Otak aplikasi)
+│   └── utils/                   # Helper (JWT, Response, Error)
+├── .env.example                 # Template konfigurasi environment
+├── Dockerfile                   # Konfigurasi Docker (Multi-stage build)
+└── docker-compose.yml           # Orkestrasi API & Database
 ```
 
-## 🚀 Cara Menjalankan Aplikasi
-Syarat Sistem
-Pastikan kamu telah menginstal Docker dan Docker Compose di komputermu.
+## 🚀 Memulai (Getting Started)
 
-Langkah Instalasi
-Clone repositori ini:
+### Prasyarat
+- Docker & Docker Compose terinstal di mesin Anda.
 
-```bash
-git clone [https://github.com/username-kamu/gothub-erp.git](https://github.com/username-kamu/gothub-erp.git)
-cd gothub-erp
-```
+### Langkah Instalasi
 
-Siapkan Environment:
-Duplikat file .env.example menjadi .env dan sesuaikan kredensial di dalamnya (Gunakan kata sandi yang kuat untuk JWT dan Database).
+1.  **Clone Repositori**:
+    ```bash
+    git clone https://github.com/azharf99/gothub-erp.git
+    cd gothub-erp
+    ```
 
-Jalankan dengan Docker Compose:
+2.  **Konfigurasi Environment**:
+    Salin file `.env.example` menjadi `.env` dan sesuaikan nilainya:
+    ```bash
+    cp .env.example .env
+    ```
 
-```bash
-docker-compose up -d --build
-```
+3.  **Jalankan dengan Docker**:
+    ```bash
+    docker-compose up -d --build
+    ```
 
-Testing API:
-Aplikasi akan berjalan di http://localhost:8080. Kamu bisa mengimpor file Gothub_ERP.postman_collection.json (jika kamu menyertakannya di repo) ke dalam aplikasi Postman untuk langsung menguji endpoint /register, /login, /refresh-token, dan /profile.
+4.  **Akses API**:
+    Server akan berjalan di `http://localhost:8080`.
 
-👨‍💻 Penulis
-Azhar Faturohman Ahidin, S.Si.
-Full Stack Web Developer | Creator of Gothub
+## 📌 Endpoint API Utama (v1)
 
-Mari berjejaring! Jika kamu menemukan proyek ini bermanfaat, jangan ragu untuk memberikan ⭐ (Star) pada repositori ini.
+### Publik
+- `POST /api/v1/register` - Pendaftaran akun baru
+- `POST /api/v1/login` - Login untuk mendapatkan token
+- `POST /api/v1/refresh-token` - Memperbarui access token
 
+### Terproteksi (Wajib Login)
+- `GET /api/v1/profile` - Melihat profil saya
+- `POST /api/v1/logout` - Logout sistem
+- `GET /api/v1/courses` - Melihat semua kursus
+
+### Manajemen Kursus (Guru & Admin)
+- `POST /api/v1/courses` - Membuat kursus baru
+- `PUT /api/v1/courses/:id` - Memperbarui kursus
+- `DELETE /api/v1/courses/:id` - Menghapus kursus
+
+### Manajemen User (Admin Saja)
+- `GET /api/v1/users` - List semua user
+- `POST /api/v1/users` - Membuat user baru
+- `PUT /api/v1/users/:id` - Edit user
+- `DELETE /api/v1/users/:id` - Hapus user
+
+## 📄 Lisensi & Atribusi
+
+Proyek ini dilisensikan di bawah **Apache License 2.0**.
+
+Sesuai dengan ketentuan lisensi, siapa pun yang menggunakan, mendistribusikan, atau memodifikasi kode ini **WAJIB mencantumkan nama penulis asli**.
+
+**Penulis Asli**:
+**Azhar Faturohman Ahidin**
+[GitHub @azharf99](https://github.com/azharf99)
+
+Lihat file [LICENSE](LICENSE) dan [NOTICE](NOTICE) untuk detail lebih lanjut.
 
 ---
-
-### Langkah Terakhir (Push ke GitHub)
-
-Agar proyekmu siap dikloning orang lain dengan aman, buat satu file lagi bernama `.env.example`. File ini adalah *template* kosong dari `.env` yang isinya tidak berisi rahasia aslimu, sekadar memberi tahu orang lain variabel apa saja yang dibutuhkan.
-
-**Isi `.env.example`:**
-```env
-PORT=8080
-DB_HOST=localhost
-DB_USER=postgres
-DB_PASSWORD=masukkan_password_kamu_di_sini
-DB_NAME=erp_db
-DB_PORT=5432
-JWT_SECRET=masukkan_kunci_rahasia_jwt_di_sini
-```
+Dibuat dengan ❤️ oleh [Azhar Faturohman Ahidin](https://github.com/azharf99). Jika Anda menyukai proyek ini, silakan berikan ⭐!
